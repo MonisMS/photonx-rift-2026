@@ -175,12 +175,14 @@ export function buildDiplotype(variants: VCFVariant[], gene: SupportedGene): str
   if (alleles.length === 0) return null;
 
   // Take at most 2 alleles; sort numerically by star number for consistency
+  // When numeric parts are equal, sort alphabetically by the full allele string
   const sorted = alleles
     .slice(0, 2)
     .sort((a, b) => {
       const numA = parseFloat(a.replace("*", "").replace(/[A-Za-z]/g, "")) || 0;
       const numB = parseFloat(b.replace("*", "").replace(/[A-Za-z]/g, "")) || 0;
-      return numA - numB;
+      if (numA !== numB) return numA - numB;
+      return a.localeCompare(b);
     });
 
   // If only one allele found, assume the other copy is *1 (normal)

@@ -109,8 +109,13 @@ Server (Phase 2 — /api/explain-single × N in parallel):
 | `components/motion-primitives.tsx` | Reusable framer-motion wrappers: `FadeInUp`, `FadeIn`, `StaggerContainer`, `StaggerItem`, `HoverLift`. Shared `EASE` and `VIEWPORT` constants. All check `useReducedMotion()` |
 | `components/landing/data.ts` | Shared data constants for all landing sections: `NAV_LINKS`, `STATS`, `TRUST_ITEMS`, `STEPS`, `FEATURES`, `TESTIMONIALS`, `FAQS`, `FOOTER_LINKS` |
 | `components/landing/*.tsx` | Landing page split into 10 section components: `top-nav`, `hero-section`, `trust-bar`, `how-it-works-section`, `features-section`, `security-section`, `testimonials-section`, `faq-section`, `cta-section`, `footer-section` |
-| `components/vcf-upload.tsx` | Drag-and-drop VCF upload with AnimatePresence idle/dragging/success/error states |
-| `components/drug-input.tsx` | Drug combobox with search, comma-separated batch add, brand name aliases, animated removable chips |
+| `components/analyze/step-progress.tsx` | 3-node horizontal progress flow — completion-driven (patientId / variants / drugs), animated checkmarks + connecting line fill |
+| `components/analyze/analyze-topbar.tsx` | Sticky header with back link, PharmaGuard logo, "New Analysis" clear button, "Patient Analysis" badge |
+| `components/analyze/phase-indicator.tsx` | Animated phase badge (CPIC analyzing / AI explaining) with `AnimatePresence` |
+| `components/analyze/gene-heatmap.tsx` | Per-gene phenotype heatmap grid — client-side CPIC lookup, coverage/completeness badges |
+| `components/analyze/analysis-results.tsx` | Results section: skeleton loading, result cards grid, drug comparison table, metrics bar, export buttons, system architecture accordion |
+| `components/vcf-upload.tsx` | Drag-and-drop VCF upload with floating icon animation, drag-over glow ring, success scale pulse, error shake, `useReducedMotion()` |
+| `components/drug-input.tsx` | Drug combobox with search, comma-separated batch add, brand name aliases, animated pill chips (`rounded-full`), "N drugs selected" badge, soft hover tints |
 | `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, animated confidence bar, structured AI explanation panel |
 
 ### Supported genes and their drugs
@@ -166,13 +171,16 @@ All colors use `oklch()` — never add hardcoded hex values to components.
 .eyebrow                /* section label — xs uppercase tracking-widest text-primary */
 .gradient-text          /* teal gradient applied to text via background-clip */
 .hero-gradient-text     /* bright teal-cyan gradient text for hero (visible on dark bg) */
-.animate-cta-pulse      /* teal glow pulse for ready CTA button */
+.animate-cta-pulse      /* teal glow pulse for landing CTA button */
 .bg-noise               /* SVG fractalNoise texture overlay (3% opacity, mix-blend-mode overlay) */
 .section-border-top     /* centered gradient border line between dark sections (white glow) */
 .section-border-top-light /* variant for light sections (dark gradient) */
 .border-glow            /* neon teal glow border for dark-mode cards */
 .bg-dot-grid            /* molecular dot-grid overlay for hero (animated drift) */
 .bg-dna-helix           /* DNA helix line art texture for hero/CTA backgrounds */
+.bg-dna-subtle          /* subtle deep-green DNA helix texture for analyze page (lg+ only, 4% opacity) */
+.btn-clinical           /* clinical CTA button — inner shadow highlight + outer shadow, hover shadow grow */
+.animate-shimmer-clinical /* sweeping white gradient shimmer for loading button state */
 ```
 
 ### Page gradient tokens (landing page, dark→light top→bottom)
@@ -208,7 +216,15 @@ Gradient bridge `<div>`s in `app/page.tsx` smooth transitions between adjacent t
 - **FAQ**: custom Framer Motion `AnimatePresence` accordion (not shadcn), animated height + chevron rotation
 - **Section depth**: `bg-noise` for subtle texture, `section-border-top` for edge glow between sections, `z-[2]` on content wrappers above noise pseudo-element
 - Do NOT use `whileInView` on elements that are visible on page load — they may not re-trigger
-- **CTA pulse**: `.animate-cta-pulse` on the "Generate Pharmacogenomic Report" button when all inputs are filled. Respects `prefers-reduced-motion`.
+- **Landing CTA pulse**: `.animate-cta-pulse` on landing page CTA button. Respects `prefers-reduced-motion`.
+- **Analyze page motion system** (mount-based, not scroll-triggered):
+  - Page title: `opacity: 0→1, y: 20→0`, 0.5s easeOut on mount
+  - Card container: `opacity: 0→1, scale: 0.98→1`, 0.4s easeOut, 0.1s delay
+  - Sections stagger via `section(index)` helper: `BASE_DELAY(0.15) + index * STAGGER(0.08)`, each `opacity: 0→1, y: 20→0`, 0.5s easeOut
+  - Section hover: `whileHover: { y: -4 }` + CSS `hover:shadow-md transition-shadow`
+  - Clinical CTA button: `motion.button` with `whileHover: { y: -2 }`, `whileTap: { scale: 0.98 }`, spring transition (`stiffness: 400, damping: 17`). Shimmer overlay during loading.
+  - All gated by `useReducedMotion()` — `initial: false` skips entrance, `whileHover: undefined` skips hover
+- **VCF upload states**: idle icon floats (`y: [0, -3, 0]` 2.5s loop), drag-over scales icon to 1.08, success has scale pulse `[0.92, 1.04, 1]`, error has shake `x: [0, -3, 3, -3, 3, 0]`
 
 ### Landing page sections
 
@@ -229,20 +245,38 @@ Gradient bridge `<div>`s in `app/page.tsx` smooth transitions between adjacent t
 
 ### Analyze page layout (`app/analyze/page.tsx`)
 
-- **Sticky topbar** with back-to-home link, "Patient Analysis" badge, and "New Analysis" clear button
-- **Warm title** with human subtitle ("Preventing adverse drug reactions...") and inline trust signals
-- **Input card** with visual hierarchy:
+- **Sticky topbar** (`AnalyzeTopbar`) with back-to-home link, PharmaGuard logo, "New Analysis" clear button, "Patient Analysis" badge
+- **Page title** — 28px semibold, subtitle with Heart icon, inline trust signals (13px)
+- **DNA background texture** — `.bg-dna-subtle` on page root (deep green helix, 4% opacity, lg+ only), content at `relative z-[1]`
+- **Input card** — scale 0.98→1 mount animation, `shadow-card-md`:
+  - **Step progress flow** (`StepProgress`) at top — 3 connected nodes driven by `patientId` / `variants` / `selectedDrugs` completion state
+  - **Section headers**: two-tier — 14px uppercase muted eyebrow + 18px bold title (e.g. "GENETIC DATA" / "VCF File Upload")
   - Section 01 (Patient ID) — muted background, supporting role
-  - Section 02 (VCF Upload) — teal left accent border, primary action, privacy badge, gene phenotype heatmap after upload
-  - Section 03 (Drug Selection) — teal left accent border, combobox with chips
-- **Readiness indicator** — green "Ready to generate report" bar when all inputs filled
+  - Section 02 (VCF Upload) — teal left accent border, privacy badge, VCF drop zone with floating/drag/success/error animations, gene phenotype heatmap after upload
+  - Section 03 (Drug Selection) — teal left accent border, combobox with pill chips, "N drugs selected" badge, soft hover tints
+  - Each section: staggered entrance (0.08s apart), hover lift -4px + shadow-md
+- **Readiness indicator** — green "Ready to run analysis" bar when all inputs filled
 - **"What happens next" guidance** — two-phase preview before clicking CTA
-- **CTA button** — large, "Generate Pharmacogenomic Report", teal pulse animation when ready
+- **Clinical CTA button** — `motion.button` "Run Clinical Risk Analysis" with Activity icon, `bg-emerald-800`, `.btn-clinical` inner/outer shadow, hover translateY(-2px) + shadow grow, loading shimmer overlay + "Analyzing…", disabled opacity 50%
 - `PhaseIndicator` shows which phase (CPIC vs AI) is running
-- **Results section**: performance metrics bar, partial genotype warning, drug comparison table, per-drug result cards with progressive AI explanation loading
+- **Results section** (`AnalysisResults`): performance metrics bar, partial genotype warning, drug comparison table, per-drug result cards with progressive AI explanation loading
 - **System Architecture accordion** — appears below results only (collapsed by default)
 - **Export options**: Download PDF (clinical report), Copy JSON, Download JSON
 - **Session persistence**: all state saved to localStorage, survives page refresh, auto-expires after 24h
+
+### Analyze page typography hierarchy
+
+| Element | Size | Weight | Color |
+|---|---|---|---|
+| Page title | 28px | semibold | `text-foreground` |
+| Subtitle | 14px (sm) | normal | `text-muted-foreground` |
+| Trust signals | 13px | normal | `text-muted-foreground` |
+| Section eyebrow | 14px (sm) | medium | `text-muted-foreground` uppercase tracking-widest |
+| Section title | 18px (lg) | bold | `text-foreground` |
+| Form labels | 12px (xs) | semibold | `text-foreground` |
+| Helper text | 13px | normal | `text-muted-foreground` |
+| Badges / micro text | 10–11px | semibold | contextual |
+| CTA button | 14px (sm) | bold | white on emerald-800 |
 
 ---
 
