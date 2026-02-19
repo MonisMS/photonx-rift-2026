@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FadeIn,
   FadeInSimple,
@@ -194,109 +194,218 @@ const FAQS = [
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 function TopNav() {
-  const [scrolled,   setScrolled]   = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
 
+  /* ── Scroll detection ──────────────────────────────────────────────────── */
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 12);
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
+  /* ── IntersectionObserver for active section capsule ────────────────── */
+  useEffect(() => {
+    const ids = NAV_LINKS.map((l) => l.href.replace("#", ""));
+    const elements = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(`#${entry.target.id}`);
+          }
+        }
+      },
+      { rootMargin: "-35% 0px -55% 0px" }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  /* ── Close mobile menu on resize to desktop ────────────────────────── */
+  useEffect(() => {
+    const handler = () => { if (window.innerWidth >= 768) setMobileOpen(false); };
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  /* ── Lock body scroll when mobile menu is open ─────────────────────── */
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileOpen]);
+
   return (
     <header
       className={cn(
-        "fixed top-0 z-50 w-full transition-all duration-300",
+        "fixed top-0 z-50 w-full transition-all duration-500 ease-out",
         scrolled
-          ? "bg-white/90 backdrop-blur-md border-b border-border shadow-card"
-          : "bg-transparent"
+          ? "bg-white/65 backdrop-blur-2xl border-b border-border/40 shadow-[0_1px_3px_oklch(0_0_0/0.06)]"
+          : "bg-white/[0.03] backdrop-blur-md"
       )}
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
+
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm ring-1 ring-white/25">
-            <FlaskConical className="h-4 w-4 text-white" />
-          </div>
-          <span className={cn("font-bold text-base tracking-tight transition-colors", scrolled ? "text-foreground" : "text-white")}>
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-300",
+              scrolled
+                ? "bg-primary/10 ring-1 ring-primary/20"
+                : "bg-white/12 ring-1 ring-white/20"
+            )}
+          >
+            <FlaskConical className={cn("h-4 w-4 transition-colors duration-300", scrolled ? "text-primary" : "text-white")} />
+          </motion.div>
+          <span className={cn(
+            "font-bold text-base tracking-tight transition-colors duration-300",
+            scrolled ? "text-foreground" : "text-white"
+          )}>
             PharmaGuard
           </span>
         </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1">
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-sm transition-colors",
-                scrolled
-                  ? "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                  : "text-white/70 hover:text-white hover:bg-white/10"
-              )}
-            >
-              {link.label}
-            </a>
-          ))}
+        {/* Desktop nav — frosted capsule container */}
+        <nav className={cn(
+          "hidden md:flex items-center gap-0.5 rounded-full p-1 transition-all duration-500",
+          scrolled
+            ? "bg-muted/50 border border-border/50"
+            : "bg-white/[0.06] border border-white/[0.08]"
+        )}>
+          {NAV_LINKS.map((link) => {
+            const isActive = activeSection === link.href;
+            return (
+              <a
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "relative px-3.5 py-1.5 text-[13px] font-medium rounded-full transition-colors duration-200",
+                  scrolled
+                    ? isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                    : isActive ? "text-white" : "text-white/60 hover:text-white/90"
+                )}
+              >
+                {/* Animated capsule indicator */}
+                {isActive && (
+                  <motion.div
+                    layoutId="nav-capsule"
+                    className={cn(
+                      "absolute inset-0 rounded-full",
+                      scrolled ? "bg-white shadow-sm ring-1 ring-border/50" : "bg-white/[0.12]"
+                    )}
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10">{link.label}</span>
+              </a>
+            );
+          })}
         </nav>
 
         {/* CTA + mobile toggle */}
-        <div className="flex items-center gap-2">
-          <Button
-            asChild
-            size="sm"
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/analyze"
             className={cn(
-              "hidden md:inline-flex transition-all",
+              "hidden md:inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-semibold transition-all duration-300",
               scrolled
-                ? ""
-                : "bg-white font-semibold hover:bg-white/90"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                : "bg-white/90 hover:bg-white shadow-card"
             )}
             style={scrolled ? {} : { color: "var(--pg-hero)" }}
           >
-            <Link href="/analyze">
-              Clinical Analysis <ChevronRight className="ml-1 h-3.5 w-3.5" />
-            </Link>
-          </Button>
-          <button
+            Clinical Analysis
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+
+          {/* Mobile hamburger — animated icon swap */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
             className={cn(
-              "md:hidden p-2 rounded-lg transition-colors",
-              scrolled ? "hover:bg-muted/60 text-foreground" : "hover:bg-white/10 text-white"
+              "md:hidden p-2 rounded-full transition-colors duration-200",
+              scrolled
+                ? "hover:bg-muted/60 text-foreground"
+                : "hover:bg-white/10 text-white"
             )}
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={mobileOpen ? "close" : "open"}
+                initial={{ opacity: 0, rotate: -90, scale: 0.8 }}
+                animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                exit={{ opacity: 0, rotate: 90, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+              >
+                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </motion.div>
+            </AnimatePresence>
+          </motion.button>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2 }}
-          className="md:hidden bg-white/95 backdrop-blur-md border-b border-border px-5 pb-4 space-y-1"
-        >
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="block px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-lg transition-colors"
-              onClick={() => setMobileOpen(false)}
+      {/* Mobile menu — fullscreen glass overlay */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="md:hidden fixed inset-0 top-[56px] z-40"
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-background/95 backdrop-blur-2xl" onClick={() => setMobileOpen(false)} />
+
+            {/* Menu panel */}
+            <motion.nav
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+              className="relative mx-4 mt-3 rounded-2xl bg-white border border-border shadow-card-lg p-2 space-y-0.5"
             >
-              {link.label}
-            </a>
-          ))}
-          <div className="pt-2">
-            <Button asChild size="sm" className="w-full">
-              <Link href="/analyze">Clinical Analysis</Link>
-            </Button>
-          </div>
-        </motion.div>
-      )}
+              {NAV_LINKS.map((link, i) => (
+                <motion.a
+                  key={link.href}
+                  href={link.href}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.04 * i, duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-colors",
+                    activeSection === link.href
+                      ? "bg-primary/8 text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {activeSection === link.href && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  )}
+                  {link.label}
+                </motion.a>
+              ))}
+              <div className="pt-1.5 px-2 pb-1">
+                <Button asChild size="sm" className="w-full rounded-xl">
+                  <Link href="/analyze" onClick={() => setMobileOpen(false)}>
+                    Launch Clinical Analysis
+                    <ArrowRight className="ml-2 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </motion.nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
