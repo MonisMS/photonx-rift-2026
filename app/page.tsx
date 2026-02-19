@@ -194,14 +194,19 @@ const FAQS = [
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 function TopNav() {
-  const [scrolled, setScrolled] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0); // 0 → 1
+  const scrolled = scrollProgress > 0.1;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("");
 
-  /* ── Scroll detection ──────────────────────────────────────────────────── */
+  /* ── Smooth scroll progress (0 at top → 1 at 120px) ───────────────── */
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 12);
+    const handler = () => {
+      const progress = Math.min(window.scrollY / 120, 1);
+      setScrollProgress(progress);
+    };
     window.addEventListener("scroll", handler, { passive: true });
+    handler(); // init
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
@@ -240,12 +245,17 @@ function TopNav() {
 
   return (
     <header
-      className={cn(
-        "fixed top-0 z-50 w-full transition-all duration-500 ease-out",
-        scrolled
-          ? "bg-white/65 backdrop-blur-2xl border-b border-border/40 shadow-[0_1px_3px_oklch(0_0_0/0.06)]"
-          : "bg-white/[0.03] backdrop-blur-md"
-      )}
+      className="fixed top-0 z-50 w-full"
+      style={{
+        backgroundColor: `oklch(1 0 0 / ${0.03 + scrollProgress * 0.62})`,
+        backdropFilter: `blur(${8 + scrollProgress * 16}px)`,
+        WebkitBackdropFilter: `blur(${8 + scrollProgress * 16}px)`,
+        borderBottom: `1px solid oklch(0 0 0 / ${scrollProgress * 0.08})`,
+        boxShadow: scrollProgress > 0.3
+          ? `0 1px 3px oklch(0 0 0 / ${scrollProgress * 0.06})`
+          : "none",
+        transition: "box-shadow 0.4s ease",
+      }}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
 
