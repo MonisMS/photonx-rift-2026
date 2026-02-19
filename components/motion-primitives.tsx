@@ -40,7 +40,7 @@ export const staggerContainerVariants: Variants = {
 
 // ─── Viewport defaults ────────────────────────────────────────────────────────
 
-const defaultViewport = { once: true, margin: "-60px" } as const;
+const defaultViewport = { once: true, margin: "0px" } as const;
 
 // ─── Shared prop interface ────────────────────────────────────────────────────
 
@@ -54,12 +54,12 @@ interface AnimProps {
 
 export function FadeIn({ children, className, delay = 0 }: AnimProps) {
   const shouldReduce = useReducedMotion();
-  if (shouldReduce) return <div className={className}>{children}</div>;
+  
+  if (shouldReduce === true) return <div className={className}>{children}</div>;
 
   return (
     <motion.div
       variants={fadeInUpVariants}
-      initial="hidden"
       whileInView="visible"
       viewport={defaultViewport}
       {...(delay ? { transition: { ...springTransition, delay } } : {})}
@@ -74,12 +74,11 @@ export function FadeIn({ children, className, delay = 0 }: AnimProps) {
 
 export function FadeInSimple({ children, className, delay = 0 }: AnimProps) {
   const shouldReduce = useReducedMotion();
-  if (shouldReduce) return <div className={className}>{children}</div>;
+  if (shouldReduce === true) return <div className={className}>{children}</div>;
 
   return (
     <motion.div
       variants={fadeInVariants}
-      initial="hidden"
       whileInView="visible"
       viewport={defaultViewport}
       {...(delay ? { transition: { duration: 0.45, ease: "easeOut", delay } } : {})}
@@ -94,12 +93,11 @@ export function FadeInSimple({ children, className, delay = 0 }: AnimProps) {
 
 export function StaggerContainer({ children, className }: { children: ReactNode; className?: string }) {
   const shouldReduce = useReducedMotion();
-  if (shouldReduce) return <div className={className}>{children}</div>;
+  if (shouldReduce === true) return <div className={className}>{children}</div>;
 
   return (
     <motion.div
       variants={staggerContainerVariants}
-      initial="hidden"
       whileInView="visible"
       viewport={defaultViewport}
       className={className}
@@ -168,7 +166,6 @@ export function ScaleIn({ children, className, delay = 0 }: AnimProps) {
   return (
     <motion.div
       variants={scaleInVariants}
-      initial="hidden"
       whileInView="visible"
       viewport={defaultViewport}
       {...(delay ? { transition: { ...springTransition, delay } } : {})}
@@ -188,7 +185,6 @@ export function AnimatedStat({ children, className }: { children: ReactNode; cla
 
   return (
     <motion.span
-      initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
