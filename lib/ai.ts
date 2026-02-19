@@ -1,5 +1,6 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
+import { createOpenAI }             from "@ai-sdk/openai";
+import { generateText }             from "ai";
 
 // ─── Lazy Key Pool ────────────────────────────────────────────────────────────
 // Keys are loaded at request time, not at module load time.
@@ -56,37 +57,58 @@ function isQuotaError(err: unknown): boolean {
   );
 }
 
-const MODEL_SEQUENCE = ["gemini-2.0-flash", "gemini-2.0-flash-lite"] as const;
+const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite"] as const;
 
 export async function generateWithFallback(prompt: string): Promise<string | null> {
-  const keys = getApiKeys();
-  if (keys.length === 0) return null;
+  const googleKeys = getApiKeys();
 
-  // Try each model, then each key within that model
-  for (const modelName of MODEL_SEQUENCE) {
-    for (const key of keys) {
+  // ── 1. Try Gemini (free) — all keys × all models ──────────────────────────
+  for (const modelName of GEMINI_MODELS) {
+    for (const key of googleKeys) {
       try {
         const google = createGoogleGenerativeAI({ apiKey: key });
         const { text } = await generateText({ model: google(modelName), prompt });
         return text;
       } catch (err) {
-        if (isQuotaError(err)) continue; // try next key / model
-        throw err;                        // non-quota errors bubble up immediately
+        if (isQuotaError(err)) continue;
+        throw err;
       }
     }
   }
 
-  return null; // all keys + models exhausted
+  // ── 2. Fall back to OpenAI (paid, last resort) ────────────────────────────
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    try {
+      const openai = createOpenAI({ apiKey: openaiKey });
+      const { text } = await generateText({
+        model:  openai("gpt-4o-mini"),  // cheapest capable model (~$0.0003 per batch)
+        prompt,
+      });
+      return text;
+    } catch (err) {
+      if (!isQuotaError(err)) throw err;
+    }
+  }
+
+  return null; // all providers exhausted
 }
 
 // ─── Key Health Check (for /api/test-keys) ────────────────────────────────────
 
 export function getKeyStatus() {
-  const keys = getApiKeys();
+  const googleKeys = getApiKeys();
+  const openaiKey  = process.env.OPENAI_API_KEY;
   return {
-    total:       keys.length,
-    configured:  keys.length > 0,
-    // Show only last 4 chars of each key for debugging — never expose full keys
-    preview:     keys.map((k) => `...${k.slice(-4)}`),
+    google: {
+      total:      googleKeys.length,
+      configured: googleKeys.length > 0,
+      preview:    googleKeys.map((k) => `...${k.slice(-4)}`),
+    },
+    openai: {
+      configured: !!openaiKey,
+      preview:    openaiKey ? `...${openaiKey.slice(-4)}` : null,
+    },
+    configured: googleKeys.length > 0 || !!openaiKey,
   };
 }

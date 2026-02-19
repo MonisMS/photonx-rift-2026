@@ -21,26 +21,27 @@ function buildBatchPrompt(inputs: ExplainInput[]): string {
   const entries = inputs
     .map(
       (inp, i) =>
-        `Drug ${i + 1}: ${inp.drug}
-- Gene: ${inp.gene}, Diplotype: ${inp.diplotype}, Phenotype: ${inp.phenotype}
-- Detected Variant: ${inp.rsid}
-- Risk: ${inp.risk_label} (Severity: ${inp.severity})`
+        `[${i + 1}] ${inp.drug} | Gene: ${inp.gene} | Diplotype: ${inp.diplotype} | Phenotype: ${inp.phenotype} | Variant: ${inp.rsid} | Risk: ${inp.risk_label} (${inp.severity})`
     )
-    .join("\n\n");
+    .join("\n");
 
-  return `You are a clinical pharmacogenomics expert assistant.
+  // Render exactly N placeholder rows — prevents model from returning fewer objects
+  const skeleton = inputs
+    .map(() => `  {"summary":"...","mechanism":"...","recommendation":"..."}`)
+    .join(",\n");
 
-For each drug below, provide a clinical explanation. Respond ONLY with a valid JSON array of ${inputs.length} objects in the same order, no extra text:
+  return `You are a clinical pharmacogenomics expert. For each numbered drug below write one JSON object. Return ONLY a JSON array of exactly ${inputs.length} objects, same order, no extra text.
 
 ${entries}
 
-Required JSON format (array of ${inputs.length} objects):
+Fields per object:
+- summary: one sentence risk summary for a non-specialist
+- mechanism: 2-3 sentences on biological mechanism citing the rsID and diplotype
+- recommendation: specific CPIC-aligned clinical action
+
+Return exactly this structure (${inputs.length} objects):
 [
-  {
-    "summary": "One sentence summary of the risk for a non-specialist",
-    "mechanism": "2-3 sentences explaining the biological mechanism, citing the rsID and diplotype",
-    "recommendation": "Specific actionable clinical recommendation aligned with CPIC guidelines"
-  }
+${skeleton}
 ]`;
 }
 

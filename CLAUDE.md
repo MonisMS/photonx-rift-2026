@@ -143,13 +143,19 @@ Located in `public/samples/` — linked from the analyze page:
 ## Environment Variables
 
 ```
-GOOGLE_API_KEY_1=   # primary Gemini key (required)
+GOOGLE_API_KEY_1=   # primary Gemini key (free, ~30 req/day)
 GOOGLE_API_KEY_2=   # teammate key
 GOOGLE_API_KEY_3=   # teammate key
 GOOGLE_API_KEY_4=   # teammate key
+OPENAI_API_KEY=     # paid fallback — gpt-4o-mini, ~$0.0003/run, optional
 ```
 
-`lib/ai.ts` loads keys lazily at request time (not at module load) and rotates across all non-empty keys. Hit `/api/test-keys` in the browser to verify keys are working.
+`lib/ai.ts` `generateWithFallback()` tries providers in this order:
+1. Gemini `gemini-2.0-flash` — all 4 Google keys
+2. Gemini `gemini-2.0-flash-lite` — all 4 Google keys
+3. OpenAI `gpt-4o-mini` — only if `OPENAI_API_KEY` is set
+
+All quota/429 errors are caught silently; the next provider is tried automatically. Hit `/api/test-keys` to verify which providers are live.
 
 ---
 

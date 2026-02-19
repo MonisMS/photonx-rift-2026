@@ -21,7 +21,7 @@ export async function GET() {
     if (!text) {
       return NextResponse.json({
         ok:    false,
-        error: "All API keys and models exhausted (quota exceeded). Add paid keys or wait for quota reset.",
+        error: "All providers exhausted. Gemini free-tier quota exceeded and no OpenAI key configured (or also exhausted). Wait for daily quota reset or add OPENAI_API_KEY.",
         keys:  status,
       }, { status: 500 });
     }

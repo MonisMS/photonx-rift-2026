@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     severity:   r.risk_assessment.severity,
   }));
 
-  // All Gemini calls run in parallel
+  // Single batched call — all drugs in one prompt, one API request total
   const explanations = await explainAll(explainInputs);
 
   // Merge explanations into full results
