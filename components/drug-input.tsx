@@ -186,7 +186,7 @@ export function DrugInput({ selected, onChange }: DrugInputProps) {
             <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
           </button>
         </div>
-        <p className="mt-1 text-[11px] text-muted-foreground">
+        <p className="mt-1 text-[13px] text-muted-foreground">
           Type to filter · comma-separated for batch add · or browse the list below
         </p>
 
@@ -219,9 +219,9 @@ export function DrugInput({ selected, onChange }: DrugInputProps) {
                         onMouseEnter={() => setFocusIdx(i)}
                         className={cn(
                           "flex items-center gap-3 w-full px-3 py-2.5 text-left transition-colors",
-                          isFocused && "bg-accent",
-                          isSelected && !isFocused && "bg-accent/50",
-                          !isFocused && !isSelected && "hover:bg-muted/40",
+                          isFocused && "bg-muted/60",
+                          isSelected && !isFocused && "bg-accent/30",
+                          !isFocused && !isSelected && "hover:bg-muted/30",
                         )}
                       >
                         {/* Check indicator */}
@@ -279,7 +279,7 @@ export function DrugInput({ selected, onChange }: DrugInputProps) {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.85 }}
                 transition={{ duration: 0.15 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-accent px-2.5 py-1 text-xs font-medium"
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-accent px-3 py-1 text-xs font-medium"
               >
                 <span className="font-mono text-[10px] text-muted-foreground">{entry.gene}</span>
                 <span className="font-semibold">{drug}</span>
@@ -298,8 +298,8 @@ export function DrugInput({ selected, onChange }: DrugInputProps) {
 
         {/* Select All / Clear */}
         {selected.length > 0 && (
-          <span className="text-xs text-muted-foreground ml-1">
-            {selected.length}/{ALL_DRUGS.length}
+          <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground ml-1">
+            {selected.length} drug{selected.length > 1 ? "s" : ""} selected
           </span>
         )}
         <div className="flex gap-1 ml-auto">

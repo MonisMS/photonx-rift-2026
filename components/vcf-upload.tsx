@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState }   from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { parseVCF }           from "@/lib/vcf-parser";
 import type { VCFVariant }    from "@/lib/types";
 import { cn }                 from "@/lib/utils";
@@ -16,6 +16,7 @@ interface VCFUploadProps {
 type UploadState = "idle" | "dragging" | "success" | "error";
 
 export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
+  const shouldReduce            = useReducedMotion();
   const inputRef                = useRef<HTMLInputElement>(null);
   const [state,    setState]    = useState<UploadState>("idle");
   const [fileName, setFileName] = useState<string | null>(null);
@@ -95,8 +96,8 @@ export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
           "relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed",
           "min-h-[144px] px-6 py-8 text-center transition-all duration-200 cursor-pointer",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-          isDragging && "border-primary bg-accent/70 scale-[1.01]",
-          isSuccess  && "border-primary/40 bg-accent/40 cursor-default",
+          isDragging && "border-primary bg-accent/70 scale-[1.01] ring-4 ring-primary/10",
+          isSuccess  && "border-solid border-emerald-400 bg-emerald-50/60 cursor-default",
           isError    && "border-destructive/40 bg-destructive/5",
           !isDragging && !isSuccess && !isError && [
             "border-border hover:border-primary/40 hover:bg-accent/30 bg-muted/20",
@@ -117,9 +118,9 @@ export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
             <motion.div
               key="success"
               initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
+              animate={{ opacity: 1, scale: shouldReduce ? 1 : [0.92, 1.04, 1] }}
               exit={{ opacity: 0, scale: 0.92 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col items-center gap-3"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -142,10 +143,13 @@ export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
           ) : isError ? (
             <motion.div
               key="error"
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
-              transition={{ duration: 0.25 }}
+              initial={{ opacity: 0, x: 0 }}
+              animate={{ opacity: 1, x: shouldReduce ? 0 : [0, -3, 3, -3, 3, 0] }}
+              exit={{ opacity: 0 }}
+              transition={{
+                opacity: { duration: 0.25 },
+                x: { duration: 0.4, ease: "easeOut" },
+              }}
               className="flex flex-col items-center gap-3"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
@@ -173,15 +177,29 @@ export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
               transition={{ duration: 0.2 }}
               className="flex flex-col items-center gap-3"
             >
-              <div className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
-                isDragging ? "bg-primary/15" : "bg-muted/60"
-              )}>
+              <motion.div
+                animate={
+                  shouldReduce
+                    ? undefined
+                    : isDragging
+                    ? { y: 0, scale: 1.08 }
+                    : { y: [0, -3, 0] }
+                }
+                transition={
+                  isDragging
+                    ? { duration: 0.2, ease: "easeOut" }
+                    : { duration: 2.5, repeat: Infinity, ease: "easeInOut" }
+                }
+                className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
+                  isDragging ? "bg-primary/15" : "bg-muted/60"
+                )}
+              >
                 <UploadCloud className={cn(
                   "h-6 w-6 transition-colors",
                   isDragging ? "text-primary" : "text-muted-foreground"
                 )} />
-              </div>
+              </motion.div>
               <div>
                 <p className="text-sm font-semibold">
                   {isDragging ? "Drop to upload" : "Drop your VCF file here"}
