@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { VCFVariant, SupportedDrug, SupportedGene, AnalysisResult } from "@/lib/types";
+import type { VCFVariant, SupportedGene, AnalysisResult } from "@/lib/types";
 import { generatePDFReport } from "@/lib/pdf-report";
 
 type Phase = "idle" | "analyzing" | "explaining" | "done" | "error";
@@ -13,7 +13,7 @@ interface StoredSession {
   patientId:     string;
   variants:      VCFVariant[];
   genesDetected: SupportedGene[];
-  selectedDrugs: SupportedDrug[];
+  selectedDrugs: string[];  // Dynamic drugs from API (lowercase names)
   cpicResults:   CPICResult[];
   fullResults:   AnalysisResult[];
   analysisMeta:  { cpicMs: number; totalMs: number; genesAnalyzed: string[] } | null;
@@ -24,7 +24,7 @@ export function useAnalysisSession() {
   const [variants,      setVariants]      = useState<VCFVariant[]>([]);
   const [genesDetected, setGenesDetected] = useState<SupportedGene[]>([]);
   const [patientId,     setPatientId]     = useState("");
-  const [selectedDrugs, setSelectedDrugs] = useState<SupportedDrug[]>([]);
+  const [selectedDrugs, setSelectedDrugs] = useState<string[]>([]);  // Dynamic drugs
   const [phase,         setPhase]         = useState<Phase>("idle");
   const [cpicResults,   setCpicResults]   = useState<CPICResult[]>([]);
   const [fullResults,   setFullResults]   = useState<AnalysisResult[]>([]);
@@ -104,10 +104,13 @@ export function useAnalysisSession() {
 
     const t0 = performance.now();
 
+    // Normalize drug names to UPPERCASE for API compatibility
+    const normalizedDrugs = selectedDrugs.map(d => d.toUpperCase());
+    
     const analyzeRes = await fetch("/api/analyze", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ variants, drugs: selectedDrugs, patientId: patientId.trim(), genesDetected }),
+      body:    JSON.stringify({ variants, drugs: normalizedDrugs, patientId: patientId.trim(), genesDetected }),
     });
 
     if (!analyzeRes.ok) {

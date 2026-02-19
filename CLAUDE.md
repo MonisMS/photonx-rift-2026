@@ -58,8 +58,12 @@ Package manager is **pnpm**. Never use npm or yarn.
 | `GET /` | `app/page.tsx` | Landing page shell — imports 10 section components from `components/landing/` |
 | `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — delegates state to `useAnalysisSession` hook |
 | `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates input + CPIC lookup → returns `CPICResult[]` instantly, zero AI calls |
+| `POST /api/analyze-v2` | `app/api/analyze-v2/route.ts` | V2 with CPIC API integration. `?mode=fast` (default, hardcoded) or `?mode=api` (live CPIC data) |
 | `POST /api/explain` | `app/api/explain/route.ts` | Phase 2 (batch, legacy): takes `CPICResult[]`, makes **1 batched AI call** → returns `AnalysisResult[]` |
 | `POST /api/explain-single` | `app/api/explain-single/route.ts` | Phase 2 (parallel, primary): takes **1** `CPICResult`, returns **1** `AnalysisResult`. Client fires N in parallel for progressive card loading |
+| `GET /api/drugs` | `app/api/drugs/route.ts` | Dynamic drug catalog: returns all 167 CPIC drugs with guidelines (fetched from CPIC API, cached 24h) |
+| `GET /api/cpic-cache` | `app/api/cpic-cache/route.ts` | Check CPIC API health and cache status |
+| `POST /api/cpic-cache?action=warm` | `app/api/cpic-cache/route.ts` | Pre-warm CPIC API cache with all drug data |
 | `GET /api/test-keys` | `app/api/test-keys/route.ts` | Dev utility: verifies all configured AI providers are live |
 
 ### The core pipeline (how a request flows)
@@ -102,13 +106,16 @@ Server (Phase 2 — /api/explain-single × N in parallel):
 |---|---|
 | `lib/types.ts` | All TypeScript interfaces — the JSON schema contract everything must follow |
 | `lib/vcf-parser.ts` | Parses VCF text, extracts `GENE`, `STAR`, `RS` from INFO column |
-| `lib/cpic.ts` | `DRUG_GENE_MAP`, `CPIC_REFERENCES`, diplotype→phenotype tables, phenotype+drug→risk tables for 6 genes × 10 drugs |
+| `lib/cpic.ts` | `DRUG_GENE_MAP`, `CPIC_REFERENCES`, diplotype→phenotype tables, phenotype+drug→risk tables for 6 genes × 10 drugs. Includes API-enhanced functions: `analyzeDrugWithAPI()`, `analyzeMultipleDrugsWithAPI()`, `analyzeDrugFast()` |
+| `lib/cpic-api.ts` | CPIC REST API client with in-memory caching (24h TTL). Endpoints: `fetchPairs()`, `fetchRecommendations()`, `getRiskFromAPI()`, `warmCache()`, `checkAPIHealth()` |
 | `lib/validator.ts` | Server-side validation of `variants`, `drugs`, and `patientId` before CPIC lookup |
 | `lib/ai.ts` | `generateWithFallback(prompt)` — tries Gemini → OpenRouter → OpenAI. `getKeyStatus()` for health check |
 | `lib/gemini.ts` | `explainSingle()` for per-drug prompts (primary); `explainAll()` for batch (legacy). Includes fallback explanations |
 | `lib/pdf-report.ts` | `generatePDFReport()` — client-side PDF generation using jspdf + jspdf-autotable. Full clinical report layout |
 | `lib/utils.ts` | `cn()` helper (clsx + tailwind-merge) |
 | `app/api/analyze/route.ts` | Phase 1 orchestration — exports `CPICResult` type |
+| `app/api/analyze-v2/route.ts` | Phase 1 with CPIC API integration — `?mode=fast` (default) or `?mode=api`. Returns additional fields: `data_sources`, `cpic_level`, `api_citations` |
+| `app/api/cpic-cache/route.ts` | GET for cache stats, POST `?action=warm` to pre-warm cache, POST `?action=clear` to clear |
 | `app/api/explain-single/route.ts` | Phase 2 (primary) — single drug explain, called N times in parallel |
 | `app/api/explain/route.ts` | Phase 2 (legacy batch) — calls `explainAll()` once |
 | `hooks/use-analysis-session.ts` | All analyze-page state, session persistence (localStorage), API calls (`handleAnalyze`), export actions (PDF/JSON/copy). The analyze page just calls `useAnalysisSession()` |
@@ -123,12 +130,12 @@ Server (Phase 2 — /api/explain-single × N in parallel):
 | `components/analyze/drug-comparison-table.tsx` | Scrollable multi-drug comparison table (Drug / Gene / Diplotype / Phenotype / Risk / Confidence), shown when 2+ results |
 | `components/analyze/result-skeleton.tsx` | Loading skeleton placeholder card matching `ResultCard` shape, shown during analyzing phase |
 | `components/vcf-upload.tsx` | Drag-and-drop VCF upload with floating icon animation, drag-over glow ring, success scale pulse, error shake, `useReducedMotion()` |
-| `components/drug-input.tsx` | Drug combobox with search, comma-separated batch add, brand name aliases, animated pill chips (`rounded-full`), "N drugs selected" badge, soft hover tints |
+| `components/drug-input.tsx` | Drug combobox with dynamic loading from `/api/drugs` (167 CPIC drugs), search, comma-separated batch add, brand name aliases, CPIC level badges, animated pill chips, "N drugs selected" badge |
 | `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, animated confidence bar, structured AI explanation panel |
 | `__tests__/*.test.ts` | Vitest test suite: `cpic.test.ts`, `vcf-parser.test.ts`, `validator.test.ts`, `integration.test.ts` |
 | `vitest.config.ts` | Vitest configuration with `@` alias pointing to repo root |
 
-### Supported genes and their drugs
+### Supported genes (hardcoded phenotype lookup)
 ```
 CYP2D6  → CODEINE, TRAMADOL
 CYP2C19 → CLOPIDOGREL, OMEPRAZOLE
@@ -136,6 +143,16 @@ CYP2C9  → WARFARIN, CELECOXIB
 SLCO1B1 → SIMVASTATIN
 TPMT    → AZATHIOPRINE
 DPYD    → FLUOROURACIL, CAPECITABINE
+```
+
+### Dynamic drugs (via CPIC API)
+The drug catalog includes **167 drugs** from CPIC, covering 20+ genes including:
+- HLA-B (abacavir, allopurinol, carbamazepine, phenytoin)
+- CYP2D6 (codeine, tramadol, amitriptyline, atomoxetine, paroxetine, etc.)
+- CYP2C19 (clopidogrel, omeprazole, escitalopram, voriconazole, etc.)
+- CYP2C9 (warfarin, phenytoin, celecoxib, etc.)
+- DPYD (fluorouracil, capecitabine)
+- SLCO1B1 (simvastatin, atorvastatin, rosuvastatin)
 ```
 
 ### Risk labels and severity levels

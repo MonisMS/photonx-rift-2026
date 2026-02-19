@@ -1,4 +1,4 @@
-import type { VCFVariant, SupportedGene, SupportedDrug } from "@/lib/types";
+import type { VCFVariant, SupportedGene } from "@/lib/types";
 
 // ─── Allowed Values ───────────────────────────────────────────────────────────
 
@@ -6,7 +6,13 @@ const SUPPORTED_GENES = new Set<string>([
   "CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD",
 ]);
 
-const SUPPORTED_DRUGS = new Set<string>([
+// Core 6 drugs required by problem statement
+export const CORE_DRUGS = new Set<string>([
+  "CODEINE", "WARFARIN", "CLOPIDOGREL", "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL",
+]);
+
+// Extended hardcoded drugs with full phenotype tables
+export const HARDCODED_DRUGS = new Set<string>([
   "CODEINE", "WARFARIN", "CLOPIDOGREL", "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL",
   "TRAMADOL", "OMEPRAZOLE", "CELECOXIB", "CAPECITABINE",
 ]);
@@ -31,7 +37,7 @@ function isValidVariant(v: unknown): v is VCFVariant {
 export interface ValidationResult {
   valid: boolean;
   variants: VCFVariant[];
-  drugs: SupportedDrug[];
+  drugs: string[];  // Dynamic drugs (uppercase)
   patientId: string;
   genesDetected: SupportedGene[];
   error?: string;
@@ -75,12 +81,14 @@ export function validateRequest(body: unknown): ValidationResult {
     return fail("No drugs provided.", { patientId, variants: validVariants, genesDetected: validGenes });
   }
 
-  const validDrugs = drugs.filter(
-    (d): d is SupportedDrug => typeof d === "string" && SUPPORTED_DRUGS.has(d)
-  );
+  // Accept any non-empty string as drug name (normalized to uppercase)
+  const validDrugs = drugs
+    .filter((d): d is string => typeof d === "string" && d.trim().length > 0)
+    .map((d) => d.trim().toUpperCase());
+  
   if (validDrugs.length === 0) {
     return fail(
-      `No supported drugs found. Supported: ${[...SUPPORTED_DRUGS].join(", ")}`,
+      "No valid drug names provided.",
       { patientId, variants: validVariants, genesDetected: validGenes },
     );
   }

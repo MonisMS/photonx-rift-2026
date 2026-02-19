@@ -221,3 +221,263 @@ export function getConfidence(variants: VCFVariant[], gene: SupportedGene, geneD
   if (geneDetected) return 0.90;
   return 0.30;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CPIC API Integration Layer
+// ═══════════════════════════════════════════════════════════════════════════════
+// The following functions use the CPIC API with automatic fallback to hardcoded data.
+// This provides live data when available while maintaining reliability.
+
+import {
+  getPhenotypeFromAPI,
+  getRiskFromAPI,
+  getGeneForDrug,
+  getCPICLevel,
+  getGuidelineCitations,
+  warmCache,
+  checkAPIHealth,
+  getCacheStats,
+  type APIRiskEntry,
+} from "@/lib/cpic-api";
+
+// ─── Data Source Tracking ─────────────────────────────────────────────────────
+
+export type DataSource = "api" | "hardcoded";
+
+export interface EnrichedRiskEntry extends RiskEntry {
+  dataSource: DataSource;
+  apiImplications?: string;
+  apiClassification?: string;
+}
+
+// ─── API-Enhanced Phenotype Lookup ────────────────────────────────────────────
+
+/**
+ * Get phenotype from diplotype.
+ * Strategy: Prefer hardcoded data (instant) - only query API if hardcoded returns "Unknown"
+ * This optimizes for latency while still benefiting from API's broader coverage.
+ */
+export async function getPhenotypeWithAPI(
+  gene: SupportedGene, 
+  diplotype: string
+): Promise<{ phenotype: Phenotype; source: DataSource }> {
+  // Try hardcoded first (instant)
+  const hardcodedPhenotype = getPhenotype(gene, diplotype);
+  if (hardcodedPhenotype !== "Unknown") {
+    return { phenotype: hardcodedPhenotype, source: "hardcoded" };
+  }
+  
+  // Hardcoded returned Unknown - try API for broader coverage
+  try {
+    const apiPhenotype = await getPhenotypeFromAPI(gene, diplotype);
+    if (apiPhenotype) {
+      return { phenotype: apiPhenotype, source: "api" };
+    }
+  } catch (error) {
+    console.warn(`[CPIC] API phenotype lookup failed for ${gene}:${diplotype}:`, error);
+  }
+  
+  // Both failed - return Unknown
+  return { phenotype: "Unknown", source: "hardcoded" };
+}
+
+// ─── API-Enhanced Risk Lookup ─────────────────────────────────────────────────
+
+/**
+ * Get risk assessment with API enhancement.
+ * Strategy: Try API first (provides richer recommendation text from CPIC), fall back to hardcoded.
+ * API data is cached so subsequent calls are fast.
+ */
+export async function getRiskWithAPI(
+  drug: SupportedDrug, 
+  phenotype: Phenotype,
+  gene: SupportedGene
+): Promise<EnrichedRiskEntry> {
+  // Try API first (cached after first call)
+  try {
+    const apiRisk = await getRiskFromAPI(drug, phenotype, gene);
+    if (apiRisk) {
+      return {
+        risk_label: apiRisk.risk_label,
+        severity: apiRisk.severity,
+        action: apiRisk.action,
+        alternatives: apiRisk.alternatives,
+        dataSource: "api",
+        apiImplications: apiRisk.implications,
+        apiClassification: apiRisk.classification,
+      };
+    }
+  } catch (error) {
+    console.warn(`[CPIC] API risk lookup failed for ${drug}/${phenotype}:`, error);
+  }
+  
+  // Fall back to hardcoded
+  const hardcodedRisk = getRisk(drug, phenotype);
+  return {
+    ...hardcodedRisk,
+    dataSource: "hardcoded",
+  };
+}
+
+// ─── API-Enhanced Gene Lookup ─────────────────────────────────────────────────
+
+/**
+ * Get gene for drug.
+ * Strategy: Use hardcoded (instant) - drug-gene relationships are static and well-defined.
+ * API is only checked if we want to verify against latest CPIC data.
+ */
+export async function getGeneForDrugWithAPI(
+  drug: SupportedDrug
+): Promise<{ gene: SupportedGene; source: DataSource }> {
+  // Use hardcoded mapping - this is stable data that doesn't change
+  // The hardcoded map covers all our supported drugs
+  return { gene: DRUG_GENE_MAP[drug], source: "hardcoded" };
+}
+
+// ─── Complete Analysis with API ───────────────────────────────────────────────
+
+export interface CPICAnalysisResult {
+  drug: SupportedDrug;
+  gene: SupportedGene;
+  diplotype: string | null;
+  phenotype: Phenotype;
+  risk: EnrichedRiskEntry;
+  confidence: number;
+  cpicLevel: string | null;
+  citations: string[] | null;
+  dataSources: {
+    gene: DataSource;
+    phenotype: DataSource;
+    risk: DataSource;
+  };
+}
+
+/**
+ * Perform complete CPIC analysis for a drug using API where possible
+ * This is the primary entry point for API-enhanced lookups
+ */
+export async function analyzeDrugWithAPI(
+  drug: SupportedDrug,
+  variants: VCFVariant[],
+  geneDetected: boolean = false
+): Promise<CPICAnalysisResult> {
+  // Get gene (API → hardcoded)
+  const { gene, source: geneSource } = await getGeneForDrugWithAPI(drug);
+  
+  // Build diplotype (local computation)
+  const diplotype = buildDiplotype(variants, gene);
+  
+  // Get phenotype (API → hardcoded)
+  let phenotype: Phenotype = "Unknown";
+  let phenotypeSource: DataSource = "hardcoded";
+  
+  if (diplotype) {
+    const phenotypeResult = await getPhenotypeWithAPI(gene, diplotype);
+    phenotype = phenotypeResult.phenotype;
+    phenotypeSource = phenotypeResult.source;
+  }
+  
+  // Get risk (API → hardcoded)
+  const risk = await getRiskWithAPI(drug, phenotype, gene);
+  
+  // Get confidence (local computation)
+  const confidence = getConfidence(variants, gene, geneDetected);
+  
+  // Get additional metadata from API (optional, non-blocking)
+  let cpicLevel: string | null = null;
+  let citations: string[] | null = null;
+  
+  try {
+    [cpicLevel, citations] = await Promise.all([
+      getCPICLevel(drug),
+      getGuidelineCitations(drug),
+    ]);
+  } catch {
+    // Non-critical, continue without
+  }
+  
+  return {
+    drug,
+    gene,
+    diplotype,
+    phenotype,
+    risk,
+    confidence,
+    cpicLevel,
+    citations,
+    dataSources: {
+      gene: geneSource,
+      phenotype: phenotypeSource,
+      risk: risk.dataSource,
+    },
+  };
+}
+
+// ─── Fast Analysis (Hardcoded Only) ───────────────────────────────────────────
+
+/**
+ * Fast CPIC analysis using only hardcoded data.
+ * Use this when latency is critical. Returns same structure as API version.
+ */
+export function analyzeDrugFast(
+  drug: SupportedDrug,
+  variants: VCFVariant[],
+  geneDetected: boolean = false
+): CPICAnalysisResult {
+  const gene = DRUG_GENE_MAP[drug];
+  const diplotype = buildDiplotype(variants, gene);
+  const phenotype = diplotype ? getPhenotype(gene, diplotype) : "Unknown";
+  const hardcodedRisk = getRisk(drug, phenotype);
+  const confidence = getConfidence(variants, gene, geneDetected);
+  
+  return {
+    drug,
+    gene,
+    diplotype,
+    phenotype,
+    risk: {
+      ...hardcodedRisk,
+      dataSource: "hardcoded",
+    },
+    confidence,
+    cpicLevel: null,
+    citations: null,
+    dataSources: {
+      gene: "hardcoded",
+      phenotype: "hardcoded",
+      risk: "hardcoded",
+    },
+  };
+}
+
+/**
+ * Fast batch analysis using only hardcoded data.
+ */
+export function analyzeMultipleDrugsFast(
+  drugs: SupportedDrug[],
+  variants: VCFVariant[],
+  geneDetected: boolean = false
+): CPICAnalysisResult[] {
+  return drugs.map(drug => analyzeDrugFast(drug, variants, geneDetected));
+}
+
+// ─── Batch Analysis ───────────────────────────────────────────────────────────
+
+/**
+ * Analyze multiple drugs in parallel with API support
+ * Optimal for reducing overall latency when checking multiple drugs
+ */
+export async function analyzeMultipleDrugsWithAPI(
+  drugs: SupportedDrug[],
+  variants: VCFVariant[],
+  geneDetected: boolean = false
+): Promise<CPICAnalysisResult[]> {
+  const results = await Promise.all(
+    drugs.map(drug => analyzeDrugWithAPI(drug, variants, geneDetected))
+  );
+  return results;
+}
+
+// ─── Re-exports for Convenience ───────────────────────────────────────────────
+
+export { warmCache, checkAPIHealth, getCacheStats };

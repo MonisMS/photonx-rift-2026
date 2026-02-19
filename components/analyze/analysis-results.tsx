@@ -7,7 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ResultCard } from "@/components/result-card";
 import { ResultSkeleton }       from "./result-skeleton";
 import { DrugComparisonTable }  from "./drug-comparison-table";
-import type { AnalysisResult, SupportedDrug } from "@/lib/types";
+import type { AnalysisResult } from "@/lib/types";
 import {
   Download,
   Copy,
@@ -29,7 +29,7 @@ type CPICResult = Omit<AnalysisResult, "llm_generated_explanation">;
 interface Props {
   phase:         Phase;
   patientId:     string;
-  selectedDrugs: SupportedDrug[];
+  selectedDrugs: string[];  // Dynamic drugs from API
   cpicResults:   CPICResult[];
   fullResults:   AnalysisResult[];
   resultsToShow: (CPICResult | AnalysisResult)[];

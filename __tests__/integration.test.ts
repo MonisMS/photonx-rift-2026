@@ -36,12 +36,12 @@ function simulateAnalyzePipeline(
   const genesDetectedSet = new Set(genesDetected);
   const genesAnalyzed = [...new Set([...genesDetected, ...variants.map((v) => v.gene)])];
 
-  const results = drugs.map((drug: SupportedDrug) => {
-    const gene = DRUG_GENE_MAP[drug];
+  const results = drugs.map((drug: string) => {
+    const gene = DRUG_GENE_MAP[drug as SupportedDrug];
     const geneWasSequenced = genesDetectedSet.has(gene);
     const diplotype = buildDiplotype(variants, gene) ?? "*1/*1";
     const phenotype = getPhenotype(gene, diplotype);
-    const risk = getRisk(drug, phenotype);
+    const risk = getRisk(drug as SupportedDrug, phenotype);
     const confidence = getConfidence(variants, gene, geneWasSequenced);
     const geneVariants = variants.filter((v) => v.gene === gene);
 
@@ -68,7 +68,7 @@ function simulateAnalyzePipeline(
         summary: risk.action,
         action: risk.action,
         alternative_drugs: risk.alternatives,
-        guideline_reference: CPIC_REFERENCES[drug],
+        guideline_reference: CPIC_REFERENCES[drug as SupportedDrug],
       },
       quality_metrics: {
         vcf_parsing_success: true,

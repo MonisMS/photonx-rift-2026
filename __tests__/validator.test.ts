@@ -217,33 +217,34 @@ describe("Validator — Drug Validation", () => {
     expect(result.valid).toBe(false);
   });
 
-  it("rejects unsupported drug name", () => {
+  it("accepts any drug name (dynamic drugs supported)", () => {
     const result = validateRequest({
       patientId: "TEST",
       variants: [{ gene: "CYP2D6", starAllele: "*1", rsid: "rs3892097" }],
       drugs: ["ASPIRIN"],
     });
-    expect(result.valid).toBe(false);
-    expect(result.error).toContain("No supported drugs");
+    expect(result.valid).toBe(true);
+    expect(result.drugs).toEqual(["ASPIRIN"]);
   });
 
-  it("rejects lowercase drug names (drugs must be uppercase)", () => {
+  it("normalizes lowercase drug names to uppercase", () => {
     const result = validateRequest({
       patientId: "TEST",
       variants: [{ gene: "CYP2D6", starAllele: "*1", rsid: "rs3892097" }],
       drugs: ["codeine"],
     });
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
+    expect(result.drugs).toEqual(["CODEINE"]);
   });
 
-  it("filters out invalid drugs but keeps valid ones", () => {
+  it("keeps all valid drug names", () => {
     const result = validateRequest({
       patientId: "TEST",
       variants: [{ gene: "CYP2D6", starAllele: "*1", rsid: "rs3892097" }],
       drugs: ["CODEINE", "ASPIRIN", "WARFARIN"],
     });
     expect(result.valid).toBe(true);
-    expect(result.drugs).toEqual(["CODEINE", "WARFARIN"]);
+    expect(result.drugs).toEqual(["CODEINE", "ASPIRIN", "WARFARIN"]);
   });
 });
 
