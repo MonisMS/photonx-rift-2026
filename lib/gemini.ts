@@ -1,10 +1,9 @@
-import { generateText } from "ai";
-import { getModel } from "@/lib/ai";
+import { generateWithFallback } from "@/lib/ai";
 import type { LLMExplanation, Phenotype, RiskLabel, Severity } from "@/lib/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface ExplainInput {
+export interface ExplainInput {
   gene:       string;
   diplotype:  string;
   phenotype:  Phenotype;
@@ -14,36 +13,45 @@ interface ExplainInput {
   severity:   Severity;
 }
 
-// ─── Prompt Builder ───────────────────────────────────────────────────────────
+// ─── Batch Prompt Builder ─────────────────────────────────────────────────────
+// One prompt → one API call → array of explanations.
+// Reduces quota usage from N calls to 1 regardless of how many drugs are selected.
 
-function buildPrompt(input: ExplainInput): string {
+function buildBatchPrompt(inputs: ExplainInput[]): string {
+  const entries = inputs
+    .map(
+      (inp, i) =>
+        `Drug ${i + 1}: ${inp.drug}
+- Gene: ${inp.gene}, Diplotype: ${inp.diplotype}, Phenotype: ${inp.phenotype}
+- Detected Variant: ${inp.rsid}
+- Risk: ${inp.risk_label} (Severity: ${inp.severity})`
+    )
+    .join("\n\n");
+
   return `You are a clinical pharmacogenomics expert assistant.
 
-Patient Data:
-- Gene: ${input.gene}
-- Diplotype: ${input.diplotype}
-- Phenotype: ${input.phenotype}
-- Detected Variant: ${input.rsid}
-- Drug: ${input.drug}
-- Risk Assessment: ${input.risk_label} (Severity: ${input.severity})
+For each drug below, provide a clinical explanation. Respond ONLY with a valid JSON array of ${inputs.length} objects in the same order, no extra text:
 
-Respond ONLY with valid JSON in this exact format, no extra text:
-{
-  "summary": "One sentence summary of the risk for a non-specialist",
-  "mechanism": "2-3 sentences explaining the biological mechanism, citing the rsID and diplotype",
-  "recommendation": "Specific actionable clinical recommendation aligned with CPIC guidelines"
-}`;
+${entries}
+
+Required JSON format (array of ${inputs.length} objects):
+[
+  {
+    "summary": "One sentence summary of the risk for a non-specialist",
+    "mechanism": "2-3 sentences explaining the biological mechanism, citing the rsID and diplotype",
+    "recommendation": "Specific actionable clinical recommendation aligned with CPIC guidelines"
+  }
+]`;
 }
 
 // ─── JSON Extractor ───────────────────────────────────────────────────────────
-// Gemini sometimes wraps JSON in markdown code blocks — strip that
 
 function extractJSON(raw: string): string {
   const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   return match ? match[1].trim() : raw.trim();
 }
 
-// ─── Single Drug Explainer ────────────────────────────────────────────────────
+// ─── Fallback ─────────────────────────────────────────────────────────────────
 
 const FALLBACK_EXPLANATION: LLMExplanation = {
   summary:        "Clinical explanation unavailable.",
@@ -51,29 +59,29 @@ const FALLBACK_EXPLANATION: LLMExplanation = {
   recommendation: "Consult a clinical pharmacist for detailed guidance.",
 };
 
-async function explainDrug(input: ExplainInput): Promise<LLMExplanation> {
-  try {
-    const { text } = await generateText({
-      model:  getModel("flash"),
-      prompt: buildPrompt(input),
-    });
-
-    const parsed = JSON.parse(extractJSON(text)) as LLMExplanation;
-
-    return {
-      summary:        parsed.summary        || FALLBACK_EXPLANATION.summary,
-      mechanism:      parsed.mechanism      || FALLBACK_EXPLANATION.mechanism,
-      recommendation: parsed.recommendation || FALLBACK_EXPLANATION.recommendation,
-    };
-  } catch (err) {
-    // Log the real error so it shows in Vercel function logs
-    console.error(`[PharmaGuard] Gemini call failed for ${input.drug}:`, err);
-    return FALLBACK_EXPLANATION;
-  }
-}
-
-// ─── Parallel Explainer (all drugs at once) ───────────────────────────────────
+// ─── Batch Explainer — 1 API call for all drugs ───────────────────────────────
 
 export async function explainAll(inputs: ExplainInput[]): Promise<LLMExplanation[]> {
-  return Promise.all(inputs.map(explainDrug));
+  if (inputs.length === 0) return [];
+
+  try {
+    const text = await generateWithFallback(buildBatchPrompt(inputs));
+    if (!text) return inputs.map(() => FALLBACK_EXPLANATION);
+
+    const parsed = JSON.parse(extractJSON(text)) as LLMExplanation[];
+
+    // Validate we got back an array of the right length
+    if (!Array.isArray(parsed) || parsed.length !== inputs.length) {
+      throw new Error(`Expected array of ${inputs.length}, got ${Array.isArray(parsed) ? parsed.length : typeof parsed}`);
+    }
+
+    return parsed.map((item) => ({
+      summary:        item?.summary        || FALLBACK_EXPLANATION.summary,
+      mechanism:      item?.mechanism      || FALLBACK_EXPLANATION.mechanism,
+      recommendation: item?.recommendation || FALLBACK_EXPLANATION.recommendation,
+    }));
+  } catch (err) {
+    console.error("[PharmaGuard] Gemini batch call failed:", err);
+    return inputs.map(() => FALLBACK_EXPLANATION);
+  }
 }

@@ -1,7 +1,5 @@
-import { NextResponse }  from "next/server";
-import { getKeyStatus }  from "@/lib/ai";
-import { generateText }  from "ai";
-import { getModel }      from "@/lib/ai";
+import { NextResponse }             from "next/server";
+import { getKeyStatus, generateWithFallback } from "@/lib/ai";
 
 export const runtime = "nodejs";
 
@@ -10,23 +8,28 @@ export async function GET() {
 
   if (!status.configured) {
     return NextResponse.json({
-      ok:      false,
-      error:   "No API keys configured.",
-      keys:    status,
+      ok:    false,
+      error: "No API keys configured.",
+      keys:  status,
     }, { status: 500 });
   }
 
-  // Make a minimal live test call to Gemini
+  // Test using the resilient path (tries all keys + models before failing)
   try {
-    const { text } = await generateText({
-      model:  getModel("flash"),
-      prompt: 'Reply with only the word "ok"',
-    });
+    const text = await generateWithFallback('Reply with only the word "ok"');
+
+    if (!text) {
+      return NextResponse.json({
+        ok:    false,
+        error: "All API keys and models exhausted (quota exceeded). Add paid keys or wait for quota reset.",
+        keys:  status,
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
-      ok:       true,
-      gemini:   text.trim(),
-      keys:     status,
+      ok:     true,
+      gemini: text.trim(),
+      keys:   status,
     });
   } catch (err) {
     return NextResponse.json({
