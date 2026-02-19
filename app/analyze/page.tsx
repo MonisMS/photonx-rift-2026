@@ -10,7 +10,8 @@ import { VCFUpload }        from "@/components/vcf-upload";
 import { DrugInput }        from "@/components/drug-input";
 import { ResultCard }       from "@/components/result-card";
 import type { VCFVariant, SupportedDrug, AnalysisResult } from "@/lib/types";
-import { Download, Copy, CheckCheck, FlaskConical, Loader2 } from "lucide-react";
+import { Skeleton }  from "@/components/ui/skeleton";
+import { Download, Copy, CheckCheck, FlaskConical, Loader2, AlertCircle } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -190,10 +191,41 @@ export default function Home() {
 
             {/* Error */}
             {phase === "error" && error && (
-              <p className="text-sm text-red-600 font-medium">{error}</p>
+              <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-red-700">Analysis failed</p>
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
+
+        {/* ── Skeleton cards during Phase 1 (analyzing) ── */}
+        {phase === "analyzing" && (
+          <div className="space-y-4">
+            <div>
+              <Skeleton className="h-6 w-48 mb-1" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {selectedDrugs.map((drug) => (
+                <Card key={drug} className="overflow-hidden">
+                  <div className="px-5 py-3 border-b bg-muted/50">
+                    <Skeleton className="h-5 w-28" />
+                  </div>
+                  <CardContent className="p-5 space-y-3">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-2 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Results ── */}
         {(cpicResults.length > 0 || phase === "done") && (
