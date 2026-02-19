@@ -14,6 +14,7 @@ import { VCFUpload }         from "@/components/vcf-upload";
 import { DrugInput }         from "@/components/drug-input";
 import { ResultCard }        from "@/components/result-card";
 import type { VCFVariant, SupportedDrug, AnalysisResult } from "@/lib/types";
+import { generatePDFReport }   from "@/lib/pdf-report";
 import {
   Download,
   Copy,
@@ -28,6 +29,7 @@ import {
   Clock,
   Dna,
   AlertTriangle,
+  FileText,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -274,6 +276,12 @@ export default function AnalyzePage() {
             {/* Section 02 — Genetic Data */}
             <div className="p-6 md:p-8">
               <StepLabel step="02" label="Genetic Data (VCF File)" />
+              <div className="-mt-3 mb-4">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-semibold text-emerald-700">
+                  <ShieldCheck className="h-3 w-3" />
+                  Parsed locally — raw genomic file never leaves your browser
+                </span>
+              </div>
               <VCFUpload
                 onParsed={(v, pid) => {
                   setVariants(v);
@@ -281,6 +289,31 @@ export default function AnalyzePage() {
                 }}
                 onClear={() => setVariants([])}
               />
+              {/* ── Gene coverage summary ── */}
+              {variants.length > 0 && (() => {
+                const ALL_GENES = ["CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD"] as const;
+                const foundGenes = new Set(variants.map((v) => v.gene));
+                const coverage = foundGenes.size;
+                const relevance = coverage >= 5 ? "High" : coverage >= 3 ? "Moderate" : "Low";
+                const relColor = coverage >= 5 ? "text-emerald-600" : coverage >= 3 ? "text-amber-600" : "text-orange-600";
+                return (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+                      <span className="text-muted-foreground">Genes: <span className="font-semibold text-foreground">{coverage}/{ALL_GENES.length}</span></span>
+                      <span className="text-muted-foreground">Variants: <span className="font-semibold text-foreground">{variants.length}</span></span>
+                      <span className="text-muted-foreground">Relevance: <span className={`font-semibold ${relColor}`}>{relevance}</span></span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {ALL_GENES.map((g) => (
+                        <span key={g} className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-mono font-semibold ${foundGenes.has(g) ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground/50 line-through"}`}>
+                          {g}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
                 {variants.length > 0 && (
                   <p className="text-xs text-primary font-medium">
@@ -425,7 +458,16 @@ export default function AnalyzePage() {
                 </div>
 
                 {resultsToShow.length > 0 && (
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generatePDFReport(resultsToShow, patientId, variants.length)}
+                      className="gap-1.5 text-xs"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Download PDF
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -445,7 +487,7 @@ export default function AnalyzePage() {
                       className="gap-1.5 text-xs"
                     >
                       <Download className="h-3.5 w-3.5" />
-                      Download
+                      JSON
                     </Button>
                   </div>
                 )}
@@ -483,6 +525,49 @@ export default function AnalyzePage() {
                       One or more genes have incomplete allele data (confidence &lt; 95%). Results marked with lower confidence assume a normal (*1) allele for the missing copy. Confirm with full genotyping for clinical decisions.
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* ── Drug comparison table ── */}
+              {cpicResults.length > 1 && (
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-muted/50 border-b border-border">
+                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Drug</th>
+                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Gene</th>
+                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Diplotype</th>
+                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Phenotype</th>
+                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Risk</th>
+                        <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cpicResults.map((r) => {
+                        const riskColors: Record<string, string> = {
+                          "Safe":          "text-emerald-700 bg-emerald-50",
+                          "Adjust Dosage": "text-amber-700 bg-amber-50",
+                          "Toxic":         "text-red-700 bg-red-50",
+                          "Ineffective":   "text-orange-700 bg-orange-50",
+                          "Unknown":       "text-muted-foreground bg-muted",
+                        };
+                        return (
+                          <tr key={r.drug} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                            <td className="px-3 py-2 font-semibold text-foreground">{r.drug}</td>
+                            <td className="px-3 py-2 font-mono text-muted-foreground">{r.pharmacogenomic_profile.primary_gene}</td>
+                            <td className="px-3 py-2 font-mono">{r.pharmacogenomic_profile.diplotype}</td>
+                            <td className="px-3 py-2">{r.pharmacogenomic_profile.phenotype}</td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${riskColors[r.risk_assessment.risk_label] ?? ""}`}>
+                                {r.risk_assessment.risk_label}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 font-medium tabular-nums">{Math.round(r.risk_assessment.confidence_score * 100)}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
 

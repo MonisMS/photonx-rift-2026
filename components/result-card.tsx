@@ -190,7 +190,16 @@ export function ResultCard({ result, isLoadingExplain = false }: ResultCardProps
         {/* ── Confidence bar ── */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Prediction confidence</span>
+            <span className="group relative cursor-help">
+              Prediction confidence
+              <span className="pointer-events-none absolute bottom-full left-0 mb-2 w-56 rounded-lg border border-border bg-card p-2.5 text-[11px] leading-relaxed shadow-card-md opacity-0 transition-opacity group-hover:opacity-100 z-50">
+                {confidence >= 0.9
+                  ? "Both alleles detected in VCF → high confidence."
+                  : confidence >= 0.6
+                  ? "Only one allele detected — assumes normal (*1) for the missing copy."
+                  : "No alleles found for this gene — prediction based on default (*1/*1) diplotype."}
+              </span>
+            </span>
             <span className="font-medium tabular-nums">
               {Math.round(confidence * 100)}%
             </span>
