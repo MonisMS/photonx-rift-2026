@@ -1,40 +1,104 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
-  Card, CardContent, CardHeader, CardTitle,
+  Card,
+  CardContent,
 } from "@/components/ui/card";
-import { Badge }     from "@/components/ui/badge";
-import { Progress }  from "@/components/ui/progress";
-import { Skeleton }  from "@/components/ui/skeleton";
+import { Badge }    from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn }        from "@/lib/utils";
 import type { AnalysisResult, RiskLabel, Phenotype } from "@/lib/types";
+import { CheckCircle2, AlertTriangle, XCircle, MinusCircle, HelpCircle, Sparkles } from "lucide-react";
 
-// ─── Colour Maps ──────────────────────────────────────────────────────────────
+// ─── Risk visual system ───────────────────────────────────────────────────────
 
-const RISK_COLORS: Record<RiskLabel, string> = {
-  "Safe":          "bg-green-100  text-green-800  border-green-300",
-  "Adjust Dosage": "bg-amber-100  text-amber-800  border-amber-300",
-  "Toxic":         "bg-red-100    text-red-800    border-red-400",
-  "Ineffective":   "bg-orange-100 text-orange-800 border-orange-300",
-  "Unknown":       "bg-gray-100   text-gray-600   border-gray-300",
+interface RiskStyle {
+  headerBg:    string;
+  headerText:  string;
+  borderColor: string;
+  badgeBg:     string;
+  badgeText:   string;
+  icon:        React.FC<{ className?: string }>;
+}
+
+const RISK_STYLES: Record<RiskLabel, RiskStyle> = {
+  "Safe": {
+    headerBg:    "bg-emerald-50",
+    headerText:  "text-emerald-800",
+    borderColor: "border-emerald-200",
+    badgeBg:     "bg-emerald-100",
+    badgeText:   "text-emerald-800",
+    icon:        CheckCircle2,
+  },
+  "Adjust Dosage": {
+    headerBg:    "bg-amber-50",
+    headerText:  "text-amber-800",
+    borderColor: "border-amber-200",
+    badgeBg:     "bg-amber-100",
+    badgeText:   "text-amber-800",
+    icon:        AlertTriangle,
+  },
+  "Toxic": {
+    headerBg:    "bg-red-50",
+    headerText:  "text-red-800",
+    borderColor: "border-red-200",
+    badgeBg:     "bg-red-100",
+    badgeText:   "text-red-800",
+    icon:        XCircle,
+  },
+  "Ineffective": {
+    headerBg:    "bg-orange-50",
+    headerText:  "text-orange-800",
+    borderColor: "border-orange-200",
+    badgeBg:     "bg-orange-100",
+    badgeText:   "text-orange-800",
+    icon:        MinusCircle,
+  },
+  "Unknown": {
+    headerBg:    "bg-muted/40",
+    headerText:  "text-muted-foreground",
+    borderColor: "border-border",
+    badgeBg:     "bg-muted",
+    badgeText:   "text-muted-foreground",
+    icon:        HelpCircle,
+  },
 };
 
-const RISK_ICONS: Record<RiskLabel, string> = {
-  "Safe": "✓", "Adjust Dosage": "⚠", "Toxic": "✕", "Ineffective": "⊘", "Unknown": "?",
-};
+// ─── Phenotype system ─────────────────────────────────────────────────────────
 
 const PHENOTYPE_COLORS: Record<Phenotype, string> = {
   PM:      "bg-red-100    text-red-700",
   IM:      "bg-amber-100  text-amber-700",
-  NM:      "bg-green-100  text-green-700",
+  NM:      "bg-emerald-100 text-emerald-700",
   RM:      "bg-blue-100   text-blue-700",
-  URM:     "bg-purple-100 text-purple-700",
-  Unknown: "bg-gray-100   text-gray-600",
+  URM:     "bg-violet-100 text-violet-700",
+  Unknown: "bg-muted      text-muted-foreground",
 };
+
+const PHENOTYPE_LABEL: Record<Phenotype, string> = {
+  PM:      "Poor Metabolizer",
+  IM:      "Intermediate Metabolizer",
+  NM:      "Normal Metabolizer",
+  RM:      "Rapid Metabolizer",
+  URM:     "Ultrarapid Metabolizer",
+  Unknown: "Unknown",
+};
+
+// ─── Confidence bar colour ────────────────────────────────────────────────────
+
+function confidenceColor(score: number): string {
+  if (score >= 0.9) return "bg-emerald-500";
+  if (score >= 0.6) return "bg-amber-500";
+  return "bg-orange-400";
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -43,110 +107,170 @@ type PartialResult = Omit<AnalysisResult, "llm_generated_explanation"> & {
 };
 
 interface ResultCardProps {
-  result:             PartialResult;
-  isLoadingExplain?:  boolean;
+  result:            PartialResult;
+  isLoadingExplain?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ResultCard({ result, isLoadingExplain = false }: ResultCardProps) {
   const { risk_assessment, pharmacogenomic_profile, clinical_recommendation, llm_generated_explanation } = result;
-  const risk      = risk_assessment.risk_label;
-  const phenotype = pharmacogenomic_profile.phenotype;
+  const risk       = risk_assessment.risk_label;
+  const phenotype  = pharmacogenomic_profile.phenotype;
+  const style      = RISK_STYLES[risk];
+  const RiskIcon   = style.icon;
+  const confidence = risk_assessment.confidence_score;
 
   return (
-    <Card className="overflow-hidden">
-      {/* ── Header strip ── */}
-      <div className={cn("px-5 py-3 border-b flex items-center justify-between", RISK_COLORS[risk])}>
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold">{RISK_ICONS[risk]}</span>
-          <span className="font-bold tracking-wide">{result.drug}</span>
+    <Card className={cn(
+      "overflow-hidden shadow-card transition-shadow hover:shadow-card-md border",
+      style.borderColor
+    )}>
+
+      {/* ── Coloured header strip ── */}
+      <div className={cn(
+        "flex items-center justify-between px-5 py-3.5 border-b",
+        style.headerBg,
+        style.borderColor.replace("border-", "border-b-")
+      )}>
+        <div className="flex items-center gap-2.5">
+          <RiskIcon className={cn("h-4 w-4", style.headerText)} />
+          <span className={cn("font-bold text-sm tracking-wide", style.headerText)}>
+            {result.drug}
+          </span>
         </div>
-        <Badge variant="outline" className={cn("font-semibold border", RISK_COLORS[risk])}>
+        <span className={cn(
+          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border",
+          style.badgeBg,
+          style.badgeText,
+          style.borderColor
+        )}>
           {risk}
-        </Badge>
+        </span>
       </div>
 
       <CardContent className="p-5 space-y-4">
 
-        {/* ── Gene Profile ── */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* ── Gene profile row ── */}
+        <div className="flex flex-wrap items-center gap-2">
           <div className="text-sm">
-            <span className="text-muted-foreground">Gene </span>
-            <span className="font-mono font-semibold">{pharmacogenomic_profile.primary_gene}</span>
+            <span className="text-muted-foreground text-xs">Gene </span>
+            <span className="font-mono font-semibold text-xs">{pharmacogenomic_profile.primary_gene}</span>
           </div>
-          <Separator orientation="vertical" className="h-4" />
+          <Separator orientation="vertical" className="h-3.5" />
           <div className="text-sm">
-            <span className="text-muted-foreground">Diplotype </span>
-            <span className="font-mono font-semibold">{pharmacogenomic_profile.diplotype}</span>
+            <span className="text-muted-foreground text-xs">Diplotype </span>
+            <span className="font-mono font-semibold text-xs">{pharmacogenomic_profile.diplotype}</span>
           </div>
-          <Separator orientation="vertical" className="h-4" />
-          <Badge className={cn("text-xs font-semibold", PHENOTYPE_COLORS[phenotype])}>
+          <Separator orientation="vertical" className="h-3.5" />
+          <span className={cn(
+            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
+            PHENOTYPE_COLORS[phenotype]
+          )}>
             {phenotype} — {PHENOTYPE_LABEL[phenotype]}
-          </Badge>
+          </span>
         </div>
 
-        {/* ── Detected Variants ── */}
+        {/* ── Detected variants ── */}
         {pharmacogenomic_profile.detected_variants.length > 0 && (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {pharmacogenomic_profile.detected_variants.map((v) => (
               <span
                 key={v.rsid}
-                className="inline-block rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground"
+                className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
               >
-                {v.rsid} · {v.star_allele}
+                {v.rsid}
+                <span className="text-muted-foreground/50">·</span>
+                {v.star_allele}
               </span>
             ))}
           </div>
         )}
 
-        {/* ── Confidence ── */}
-        <div className="space-y-1">
+        {/* ── Confidence bar ── */}
+        <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Confidence</span>
-            <span>{Math.round(risk_assessment.confidence_score * 100)}%</span>
+            <span>Prediction confidence</span>
+            <span className="font-medium tabular-nums">
+              {Math.round(confidence * 100)}%
+            </span>
           </div>
-          <Progress value={risk_assessment.confidence_score * 100} className="h-1.5" />
+          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <motion.div
+              className={cn("h-full rounded-full", confidenceColor(confidence))}
+              initial={{ width: 0 }}
+              animate={{ width: `${confidence * 100}%` }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+            />
+          </div>
         </div>
 
         <Separator />
 
-        {/* ── Clinical Recommendation ── */}
+        {/* ── Clinical recommendation ── */}
         <p className="text-sm text-muted-foreground leading-relaxed">
           {clinical_recommendation.action}
         </p>
 
+        {/* ── Alternatives ── */}
         {clinical_recommendation.alternative_drugs && clinical_recommendation.alternative_drugs.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            <span className="text-xs text-muted-foreground mr-1">Alternatives:</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground">Alternatives:</span>
             {clinical_recommendation.alternative_drugs.map((d) => (
-              <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>
+              <Badge
+                key={d}
+                variant="secondary"
+                className="text-[11px] px-2 py-0.5 font-medium"
+              >
+                {d}
+              </Badge>
             ))}
           </div>
         )}
 
-        {/* ── Gemini Explanation ── */}
+        {/* ── AI Explanation ── */}
         {isLoadingExplain ? (
-          <div className="space-y-2 pt-1">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-5/6" />
-            <Skeleton className="h-4 w-4/6" />
+          <div className="space-y-2 pt-1 rounded-lg bg-muted/40 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-3.5 w-32" />
+            </div>
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-5/6" />
+            <Skeleton className="h-3.5 w-4/6" />
           </div>
         ) : llm_generated_explanation ? (
           <Accordion type="single" collapsible>
             <AccordionItem value="explanation" className="border-0">
-              <AccordionTrigger className="text-sm font-medium py-2 hover:no-underline">
-                AI Clinical Explanation
+              <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline group">
+                <span className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                  </span>
+                  AI Clinical Explanation
+                </span>
               </AccordionTrigger>
-              <AccordionContent className="text-sm space-y-3 text-muted-foreground">
-                <p>{llm_generated_explanation.summary}</p>
-                <div>
-                  <p className="font-medium text-foreground mb-1">Mechanism</p>
-                  <p>{llm_generated_explanation.mechanism}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground mb-1">Recommendation</p>
-                  <p>{llm_generated_explanation.recommendation}</p>
+              <AccordionContent>
+                <div className="rounded-lg bg-muted/30 border border-border p-4 space-y-4 text-sm">
+                  <p className="text-muted-foreground leading-relaxed">
+                    {llm_generated_explanation.summary}
+                  </p>
+                  <div>
+                    <p className="font-semibold text-foreground mb-1.5 text-xs uppercase tracking-wide">
+                      Mechanism
+                    </p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {llm_generated_explanation.mechanism}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground mb-1.5 text-xs uppercase tracking-wide">
+                      Clinical Recommendation
+                    </p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {llm_generated_explanation.recommendation}
+                    </p>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -157,14 +281,3 @@ export function ResultCard({ result, isLoadingExplain = false }: ResultCardProps
     </Card>
   );
 }
-
-// ─── Phenotype Labels ─────────────────────────────────────────────────────────
-
-const PHENOTYPE_LABEL: Record<Phenotype, string> = {
-  PM:      "Poor Metabolizer",
-  IM:      "Intermediate Metabolizer",
-  NM:      "Normal Metabolizer",
-  RM:      "Rapid Metabolizer",
-  URM:     "Ultrarapid Metabolizer",
-  Unknown: "Unknown",
-};

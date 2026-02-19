@@ -1,33 +1,37 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useRef, useState }   from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { parseVCF }           from "@/lib/vcf-parser";
+import type { VCFVariant }    from "@/lib/types";
+import { cn }                 from "@/lib/utils";
+import { UploadCloud, FileCheck2, XCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { parseVCF } from "@/lib/vcf-parser";
-import type { VCFVariant } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import { UploadCloud, FileCheck2, XCircle } from "lucide-react";
 
 interface VCFUploadProps {
   onParsed: (variants: VCFVariant[], patientId: string) => void;
   onClear:  () => void;
 }
 
+type UploadState = "idle" | "dragging" | "success" | "error";
+
 export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
-  const inputRef              = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const inputRef                = useRef<HTMLInputElement>(null);
+  const [state,    setState]    = useState<UploadState>("idle");
   const [fileName, setFileName] = useState<string | null>(null);
-  const [error,    setError]    = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   function processFile(file: File) {
-    setError(null);
+    setErrorMsg(null);
 
     if (!file.name.endsWith(".vcf")) {
-      setError("Only .vcf files are supported.");
+      setState("error");
+      setErrorMsg("Only .vcf files are supported.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError("File size must be under 5MB.");
+      setState("error");
+      setErrorMsg("File size must be under 5 MB.");
       return;
     }
 
@@ -36,13 +40,16 @@ export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
       const text   = e.target?.result as string;
       const result = parseVCF(text);
       if (!result.success) {
-        setError(result.error ?? "Failed to parse VCF file.");
+        setState("error");
+        setErrorMsg(result.error ?? "Failed to parse VCF file.");
         return;
       }
       if (result.variants.length === 0) {
-        setError("No pharmacogenomic variants found in this file.");
+        setState("error");
+        setErrorMsg("No pharmacogenomic variants found in this file.");
         return;
       }
+      setState("success");
       setFileName(file.name);
       onParsed(result.variants, result.patientId);
     };
@@ -51,7 +58,7 @@ export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
-    setDragging(false);
+    setState("idle");
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
   }
@@ -62,59 +69,131 @@ export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
   }
 
   function handleClear() {
+    setState("idle");
     setFileName(null);
-    setError(null);
+    setErrorMsg(null);
     if (inputRef.current) inputRef.current.value = "";
     onClear();
   }
 
+  const isDragging = state === "dragging";
+  const isSuccess  = state === "success";
+  const isError    = state === "error";
+
   return (
-    <Card
-      className={cn(
-        "border-2 border-dashed transition-colors cursor-pointer",
-        dragging  && "border-blue-400 bg-blue-50",
-        fileName  && "border-green-400 bg-green-50",
-        error     && "border-red-400 bg-red-50",
-        !dragging && !fileName && !error && "border-muted-foreground/30 hover:border-muted-foreground/60"
-      )}
-      onClick={() => !fileName && inputRef.current?.click()}
-      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={handleDrop}
-    >
-      <CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Upload VCF file"
+        onClick={() => !isSuccess && inputRef.current?.click()}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!isSuccess) inputRef.current?.click(); } }}
+        onDragOver={(e) => { e.preventDefault(); if (!isSuccess) setState("dragging"); }}
+        onDragLeave={() => setState((s) => s === "dragging" ? "idle" : s)}
+        onDrop={handleDrop}
+        className={cn(
+          "relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed",
+          "min-h-[144px] px-6 py-8 text-center transition-all duration-200 cursor-pointer",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          isDragging && "border-primary bg-accent/70 scale-[1.01]",
+          isSuccess  && "border-primary/40 bg-accent/40 cursor-default",
+          isError    && "border-destructive/40 bg-destructive/5",
+          !isDragging && !isSuccess && !isError && [
+            "border-border hover:border-primary/40 hover:bg-accent/30 bg-muted/20",
+          ]
+        )}
+      >
         <input
           ref={inputRef}
           type="file"
           accept=".vcf"
           className="hidden"
           onChange={handleFileInput}
+          aria-hidden="true"
         />
 
-        {fileName ? (
-          <>
-            <FileCheck2 className="h-10 w-10 text-green-600" />
-            <p className="font-medium text-green-700">{fileName}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-red-500 hover:text-red-700"
-              onClick={(e) => { e.stopPropagation(); handleClear(); }}
+        <AnimatePresence mode="wait">
+          {isSuccess ? (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="flex flex-col items-center gap-3"
             >
-              <XCircle className="h-4 w-4 mr-1" /> Remove file
-            </Button>
-          </>
-        ) : (
-          <>
-            <UploadCloud className={cn("h-10 w-10", dragging ? "text-blue-500" : "text-muted-foreground")} />
-            <div>
-              <p className="font-medium">Drop your VCF file here</p>
-              <p className="text-sm text-muted-foreground">or click to browse — max 5MB</p>
-            </div>
-            {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
-          </>
-        )}
-      </CardContent>
-    </Card>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <FileCheck2 className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{fileName}</p>
+                <p className="text-xs text-primary mt-0.5">File parsed successfully</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-destructive gap-1.5 mt-1"
+                onClick={(e) => { e.stopPropagation(); handleClear(); }}
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                Remove file
+              </Button>
+            </motion.div>
+          ) : isError ? (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.25 }}
+              className="flex flex-col items-center gap-3"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-destructive">Upload failed</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{errorMsg}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs gap-1.5 mt-1"
+                onClick={(e) => { e.stopPropagation(); handleClear(); inputRef.current?.click(); }}
+              >
+                Try again
+              </Button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="idle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col items-center gap-3"
+            >
+              <div className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
+                isDragging ? "bg-primary/15" : "bg-muted/60"
+              )}>
+                <UploadCloud className={cn(
+                  "h-6 w-6 transition-colors",
+                  isDragging ? "text-primary" : "text-muted-foreground"
+                )} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">
+                  {isDragging ? "Drop to upload" : "Drop your VCF file here"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  or click to browse &mdash; max 5 MB · .vcf only
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
