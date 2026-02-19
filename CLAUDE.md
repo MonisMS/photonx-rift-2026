@@ -29,12 +29,23 @@ Package manager is **pnpm**. Never use npm or yarn.
 
 ## Architecture
 
+### Routes
+
+| Route | File | Purpose |
+|---|---|---|
+| `GET /` | `app/page.tsx` | Landing page only — "Get Started" links to `/analyze` |
+| `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state and API calls live here |
+| `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates + CPIC → returns instantly |
+| `POST /api/explain` | `app/api/explain/route.ts` | Phase 2: Gemini explanations → parallel calls |
+
 ### The core pipeline (how a request flows)
 
 ```
 Browser: FileReader reads .vcf as text
        → lib/vcf-parser.ts extracts variants [{gene, star, rsid}]
        → POST /api/analyze with {variants, drugs[], patientId}
+       → renders risk badges instantly (Phase 1)
+       → POST /api/explain → fills in Gemini explanations (Phase 2)
 
 Server: lib/cpic.ts → diplotype → phenotype → risk label + severity
       + lib/ai.ts  → Gemini generates clinical explanation (parallel, one call per drug)
