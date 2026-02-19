@@ -139,13 +139,18 @@ export function ResultCard({ result, isLoadingExplain = false }: ResultCardProps
             {result.drug}
           </span>
         </div>
-        <span className={cn(
-          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border",
-          style.badgeBg,
-          style.badgeText,
-          style.borderColor
-        )}>
-          {risk}
+        <span className="group relative">
+          <span className={cn(
+            "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border cursor-help",
+            style.badgeBg,
+            style.badgeText,
+            style.borderColor
+          )}>
+            {risk}
+          </span>
+          <span className="pointer-events-none absolute top-full right-0 mt-2 w-52 rounded-lg border border-border bg-card p-2.5 text-[11px] leading-relaxed text-muted-foreground shadow-card-md opacity-0 transition-opacity group-hover:opacity-100 z-50">
+            Risk determined using CPIC peer-reviewed clinical guidelines — not AI.
+          </span>
         </span>
       </div>
 

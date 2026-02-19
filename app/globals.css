@@ -258,6 +258,15 @@
   to   { transform: translateX(-50%); }
 }
 
+/* ─── CTA ready pulse ─────────────────────────────────────────────────────── */
+@keyframes cta-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.52 0.14 184.5 / 0.4); }
+  50%      { box-shadow: 0 0 0 8px oklch(0.52 0.14 184.5 / 0); }
+}
+.animate-cta-pulse {
+  animation: cta-pulse 2s ease-in-out infinite;
+}
+
 
 /* ─── Reduced Motion ────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

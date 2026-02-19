@@ -30,6 +30,9 @@ import {
   Dna,
   AlertTriangle,
   FileText,
+  Heart,
+  Shield,
+  Lock,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -39,13 +42,13 @@ type CPICResult = Omit<AnalysisResult, "llm_generated_explanation">;
 
 // ─── Section step label ───────────────────────────────────────────────────────
 
-function StepLabel({ step, label }: { step: string; label: string }) {
+function StepLabel({ step, label, muted }: { step: string; label: string; muted?: boolean }) {
   return (
-    <div className="flex items-center gap-3 mb-5">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+    <div className="flex items-center gap-2.5 mb-4">
+      <span className={`flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${muted ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground"}`}>
         {step}
       </span>
-      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-widest text-foreground/80">{label}</span>
     </div>
   );
 }
@@ -186,7 +189,7 @@ export default function AnalyzePage() {
 
       {/* ── Topbar ── */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-3.5">
           <div className="flex items-center gap-3">
             <Button
               asChild
@@ -216,35 +219,25 @@ export default function AnalyzePage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-5 py-10 space-y-8">
+      <main className="mx-auto max-w-4xl px-5 py-8 space-y-6">
 
-        {/* ── Page title ── */}
+        {/* ── Page title — warm, human framing ── */}
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Pharmacogenomic Risk Analysis</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Upload a patient&apos;s VCF file, select drugs, and receive an instant risk report based on CPIC clinical guidelines.
+          <p className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
+            <Heart className="h-3.5 w-3.5 text-red-400 shrink-0" />
+            Preventing adverse drug reactions through personalized genomics.
           </p>
-        </div>
-
-        {/* ── Transparency + Disclaimer strip ── */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex items-start gap-2.5 flex-1 rounded-lg border border-primary/20 bg-accent/50 px-4 py-3">
-            <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-            <div>
-              <p className="text-xs font-semibold text-foreground">Deterministic Risk Engine</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                Risk predictions are 100% CPIC table lookups — no AI involved. LLM is used only for explanation generation, never for risk classification.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2.5 flex-1 rounded-lg border border-border bg-muted/30 px-4 py-3">
-            <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <p className="text-xs font-semibold text-foreground">Research Use Only</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                This tool is for clinical decision support and education. Not a diagnostic device. Always confirm with a qualified clinician.
-              </p>
-            </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground/70">
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3 text-primary" />
+              Risk predictions: 100% CPIC lookup tables — zero AI
+            </span>
+            <span className="hidden sm:inline opacity-30">|</span>
+            <span className="flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              Research &amp; clinical decision support only
+            </span>
           </div>
         </div>
 
@@ -252,35 +245,45 @@ export default function AnalyzePage() {
         <Card className="shadow-card-md border-border overflow-hidden">
           <CardContent className="p-0">
 
-            {/* Section 01 — Patient Details */}
-            <div className="p-6 md:p-8">
-              <StepLabel step="01" label="Patient Details" />
-              <div className="max-w-xs">
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                  Patient ID
-                </label>
+            {/* Section 01 — Patient Details (supporting — visually lighter) */}
+            <div className="px-6 py-5 md:px-8 md:py-6 bg-muted/10">
+              <StepLabel step="01" label="Patient Identification" muted />
+              <div className="max-w-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-primary" />
+                    Patient ID
+                  </label>
+                  <span className="rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                    Required
+                  </span>
+                </div>
                 <Input
                   placeholder="e.g. PATIENT_001"
                   value={patientId}
                   onChange={(e) => setPatientId(e.target.value)}
-                  className="h-10"
+                  className={`h-10 font-mono ${patientId.trim() ? "border-primary/40 bg-accent/30" : ""}`}
                 />
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Used to label the report — never transmitted beyond this session.
+                <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <ShieldCheck className="h-3 w-3 text-emerald-500 shrink-0" />
+                  Required for report generation. Stays local — never transmitted.
                 </p>
               </div>
             </div>
 
             <Separator />
 
-            {/* Section 02 — Genetic Data */}
-            <div className="p-6 md:p-8">
+            {/* Section 02 — Genetic Data (primary action) */}
+            <div className="p-6 md:p-8 border-l-2 border-l-primary/30">
               <StepLabel step="02" label="Genetic Data (VCF File)" />
-              <div className="-mt-3 mb-4">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-semibold text-emerald-700">
-                  <ShieldCheck className="h-3 w-3" />
-                  Parsed locally — raw genomic file never leaves your browser
-                </span>
+              <div className="-mt-2 mb-4">
+                <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2">
+                  <Lock className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-emerald-800">Genomic data stays on your device</p>
+                    <p className="text-[10px] text-emerald-600 leading-snug">Parsed locally in your browser — never uploaded to any server.</p>
+                  </div>
+                </div>
               </div>
               <VCFUpload
                 onParsed={(v, pid) => {
@@ -289,23 +292,32 @@ export default function AnalyzePage() {
                 }}
                 onClear={() => setVariants([])}
               />
-              {/* ── Gene coverage summary ── */}
+              {/* ── Genotype confidence panel ── */}
               {variants.length > 0 && (() => {
                 const ALL_GENES = ["CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD"] as const;
                 const foundGenes = new Set(variants.map((v) => v.gene));
                 const coverage = foundGenes.size;
-                const relevance = coverage >= 5 ? "High" : coverage >= 3 ? "Moderate" : "Low";
-                const relColor = coverage >= 5 ? "text-emerald-600" : coverage >= 3 ? "text-amber-600" : "text-orange-600";
+                const completeness = coverage >= 5 ? "High" : coverage >= 3 ? "Moderate" : "Low";
+                const compColor = coverage >= 5 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : coverage >= 3 ? "text-amber-700 bg-amber-50 border-amber-200" : "text-orange-700 bg-orange-50 border-orange-200";
+                const actionableCount = variants.filter((v) => v.starAllele !== "*1").length;
                 return (
-                  <div className="mt-3 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
-                      <span className="text-muted-foreground">Genes: <span className="font-semibold text-foreground">{coverage}/{ALL_GENES.length}</span></span>
-                      <span className="text-muted-foreground">Variants: <span className="font-semibold text-foreground">{variants.length}</span></span>
-                      <span className="text-muted-foreground">Relevance: <span className={`font-semibold ${relColor}`}>{relevance}</span></span>
+                  <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3 space-y-2.5">
+                    <div className="space-y-1">
+                      <p className="flex items-center gap-1.5 text-xs text-emerald-800">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span className="font-bold">{coverage} of {ALL_GENES.length} pharmacogenomic genes detected</span>
+                      </p>
+                      <p className="flex items-center gap-1.5 text-xs text-emerald-800 pl-5">
+                        <span>{variants.length} variant{variants.length > 1 ? "s" : ""} identified{actionableCount > 0 ? ` · ${actionableCount} actionable` : ""}</span>
+                      </p>
+                      <p className="flex items-center gap-1.5 text-xs pl-5">
+                        <span className="text-emerald-700">Genotype completeness:</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border ${compColor}`}>{completeness}</span>
+                      </p>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {ALL_GENES.map((g) => (
-                        <span key={g} className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-mono font-semibold ${foundGenes.has(g) ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground/50 line-through"}`}>
+                        <span key={g} className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-mono font-semibold ${foundGenes.has(g) ? "bg-emerald-100 text-emerald-700" : "bg-white/60 text-muted-foreground/40 line-through"}`}>
                           {g}
                         </span>
                       ))}
@@ -314,39 +326,32 @@ export default function AnalyzePage() {
                 );
               })()}
 
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-                {variants.length > 0 && (
-                  <p className="text-xs text-primary font-medium">
-                    ✓ {variants.length} pharmacogenomic variant{variants.length > 1 ? "s" : ""} detected
-                  </p>
-                )}
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  Sample files:
-                  {[
-                    { label: "All Normal",    file: "sample_all_normal.vcf"    },
-                    { label: "Codeine PM",    file: "sample_codeine_pm.vcf"    },
-                    { label: "Codeine Toxic", file: "sample_codeine_toxic.vcf" },
-                    { label: "Multi Risk",    file: "sample_multi_risk.vcf"    },
-                  ].map(({ label, file }, i) => (
-                    <span key={file}>
-                      {i > 0 && <span className="mx-1 opacity-40">·</span>}
-                      <a
-                        href={`/samples/${file}`}
-                        download
-                        className="underline underline-offset-2 hover:text-foreground transition-colors"
-                      >
-                        {label}
-                      </a>
-                    </span>
-                  ))}
-                </div>
+              <div className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                Sample files:
+                {[
+                  { label: "All Normal",    file: "sample_all_normal.vcf"    },
+                  { label: "Codeine PM",    file: "sample_codeine_pm.vcf"    },
+                  { label: "Codeine Toxic", file: "sample_codeine_toxic.vcf" },
+                  { label: "Multi Risk",    file: "sample_multi_risk.vcf"    },
+                ].map(({ label, file }, i) => (
+                  <span key={file}>
+                    {i > 0 && <span className="mx-1 opacity-40">·</span>}
+                    <a
+                      href={`/samples/${file}`}
+                      download
+                      className="underline underline-offset-2 hover:text-foreground transition-colors"
+                    >
+                      {label}
+                    </a>
+                  </span>
+                ))}
               </div>
             </div>
 
             <Separator />
 
-            {/* Section 03 — Drug Selection */}
-            <div className="p-6 md:p-8">
+            {/* Section 03 — Drug Selection (primary action) */}
+            <div className="p-6 md:p-8 border-l-2 border-l-primary/30">
               <StepLabel step="03" label="Select Drugs to Analyze" />
               <DrugInput selected={selectedDrugs} onChange={setSelectedDrugs} />
             </div>
@@ -355,21 +360,21 @@ export default function AnalyzePage() {
 
             {/* Submit + status */}
             <div className="p-6 md:p-8 space-y-4 bg-muted/20">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <Button
                   onClick={handleAnalyze}
                   disabled={!canAnalyze || isLoading}
-                  className="h-11 px-8 text-sm font-semibold shadow-card"
+                  className={`h-12 px-10 text-sm font-bold shadow-card-md tracking-wide ${canAnalyze && !isLoading ? "animate-cta-pulse" : ""}`}
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {phase === "analyzing" ? "Analyzing…" : "Generating Report…"}
+                      {phase === "analyzing" ? "Running CPIC Analysis…" : "Generating AI Explanations…"}
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-4 w-4 mr-2" />
-                      Run Analysis
+                      Generate Pharmacogenomic Report
                     </>
                   )}
                 </Button>
@@ -606,18 +611,19 @@ export default function AnalyzePage() {
           )}
         </AnimatePresence>
 
-        {/* ── System Architecture (collapsible) ── */}
-        <Accordion type="single" collapsible className="mt-4">
-          <AccordionItem value="arch" className="rounded-xl border border-border bg-card px-5 shadow-card">
-            <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline">
-              <span className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-primary" />
-                System Architecture
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 pb-4 text-sm text-muted-foreground">
-                <pre className="rounded-lg bg-muted/50 border border-border p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre">{`Browser (Client)
+        {/* ── System Architecture — only shown after results exist ── */}
+        {showResults && (
+          <Accordion type="single" collapsible>
+            <AccordionItem value="arch" className="rounded-xl border border-border bg-card px-5 shadow-card">
+              <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline">
+                <span className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-primary" />
+                  System Architecture
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pb-4 text-sm text-muted-foreground">
+                  <pre className="rounded-lg bg-muted/50 border border-border p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre">{`Browser (Client)
   ├── FileReader API parses .vcf text (no server upload)
   ├── Extracts variants: gene, star allele, rsID
   └── Sends compact JSON to API
@@ -639,10 +645,11 @@ Key Design Decisions:
   • VCF never leaves the browser — privacy by design
   • Single API call regardless of drug count
   • Provider waterfall ensures 99%+ uptime`}</pre>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
       </main>
     </div>
   );

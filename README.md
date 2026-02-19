@@ -11,8 +11,8 @@ PharmaGuard analyzes a patient's genetic data (VCF file) and predicts personaliz
 | | |
 |---|---|
 | **Live Demo** | https://photonx-rift-2026.vercel.app |
-| **Demo Video** | `https://linkedin.com/...` ← add after recording |
-| **GitHub** | `https://github.com/your-org/photonx-rift-2026` ← add your real repo URL |
+| **Demo Video** | _LinkedIn video link — add after recording_ |
+| **GitHub** | https://github.com/MonisMS/photonx-rift-2026 |
 
 ---
 
@@ -28,7 +28,7 @@ Upload a patient's `.vcf` file and select drugs. PharmaGuard:
 
 Supported genes: `CYP2D6` `CYP2C19` `CYP2C9` `SLCO1B1` `TPMT` `DPYD`
 
-Supported drugs: `CODEINE` `WARFARIN` `CLOPIDOGREL` `SIMVASTATIN` `AZATHIOPRINE` `FLUOROURACIL`
+Supported drugs: `CODEINE` `WARFARIN` `CLOPIDOGREL` `SIMVASTATIN` `AZATHIOPRINE` `FLUOROURACIL` `TRAMADOL` `OMEPRAZOLE` `CELECOXIB` `CAPECITABINE`
 
 ---
 
@@ -70,7 +70,7 @@ The risk logic is **fully deterministic** (CPIC lookup tables). Gemini is used o
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-org/photonx-rift-2026
+git clone https://github.com/MonisMS/photonx-rift-2026
 cd photonx-rift-2026
 
 # Install dependencies
@@ -147,7 +147,9 @@ Phase 1 — runs CPIC logic, returns instantly.
       },
       "clinical_recommendation": {
         "summary": "...",
-        "action": "..."
+        "action": "...",
+        "alternative_drugs": ["Tramadol", "Morphine"],
+        "guideline_reference": "CPIC Guideline for CYP2D6 and Codeine Therapy (2019 Update) — PMID: 31006110"
       },
       "quality_metrics": {
         "vcf_parsing_success": true,
@@ -171,7 +173,8 @@ Phase 2 — adds Gemini-generated clinical explanations to Phase 1 results.
   "llm_generated_explanation": {
     "summary": "This patient is an Intermediate Metabolizer for CYP2D6...",
     "mechanism": "The rs3892097 variant in CYP2D6 (*4 allele) creates...",
-    "recommendation": "Consider alternative analgesics per CPIC guidelines..."
+    "recommendation": "Consider alternative analgesics per CPIC guidelines...",
+    "citations": "CPIC Guideline for CYP2D6 and Codeine (PMID: 31006110); PharmGKB CYP2D6 summary"
   }
 }
 ```
@@ -187,13 +190,13 @@ Phase 2 — adds Gemini-generated clinical explanations to Phase 1 results.
 5. Click **Analyze**
 6. Risk badges appear instantly (Phase 1)
 7. AI explanations load within 3–5 seconds (Phase 2)
-8. Download the full JSON report or copy to clipboard
+8. Download as PDF clinical report, JSON, or copy to clipboard
 
 Sample VCF files for testing are available on the analyze page.
 
 ---
 
-## Supported Bug Types / Risk Labels
+## Risk Labels
 
 | Risk Label | Meaning |
 |---|---|
@@ -207,7 +210,7 @@ Sample VCF files for testing are available on the analyze page.
 
 ## Known Limitations
 
-- Covers 6 genes and 6 drugs only (as specified in the problem statement)
+- Covers 6 genes and 10 drugs (CYP2D6, CYP2C19, CYP2C9, SLCO1B1, TPMT, DPYD)
 - CPIC tables include common star alleles; rare/novel combinations return `Unknown`
 - Gemini explanation is informational — not a substitute for clinical pharmacist review
 - Single-sample VCF only; multi-sample VCFs use the first sample column
