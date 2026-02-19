@@ -50,7 +50,7 @@ Package manager is **pnpm**. Never use npm or yarn.
 
 | Route | File | Purpose |
 |---|---|---|
-| `GET /` | `app/page.tsx` | Full landing page — hero, features, how-it-works, FAQ, footer |
+| `GET /` | `app/page.tsx` | Landing page shell — imports 10 section components from `components/landing/` |
 | `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state, localStorage persistence, API calls |
 | `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates input + CPIC lookup → returns `CPICResult[]` instantly, zero AI calls |
 | `POST /api/explain` | `app/api/explain/route.ts` | Phase 2 (batch, legacy): takes `CPICResult[]`, makes **1 batched AI call** → returns `AnalysisResult[]` |
@@ -106,7 +106,9 @@ Server (Phase 2 — /api/explain-single × N in parallel):
 | `app/api/analyze/route.ts` | Phase 1 orchestration — exports `CPICResult` type |
 | `app/api/explain-single/route.ts` | Phase 2 (primary) — single drug explain, called N times in parallel |
 | `app/api/explain/route.ts` | Phase 2 (legacy batch) — calls `explainAll()` once |
-| `components/motion-primitives.tsx` | Reusable framer-motion wrappers: `FadeIn`, `FadeInSimple`, `StaggerContainer`, `StaggerItem`, `HoverLift`, `ScaleIn`, `AnimatedStat` |
+| `components/motion-primitives.tsx` | Reusable framer-motion wrappers: `FadeInUp`, `FadeIn`, `StaggerContainer`, `StaggerItem`, `HoverLift`. Shared `EASE` and `VIEWPORT` constants. All check `useReducedMotion()` |
+| `components/landing/data.ts` | Shared data constants for all landing sections: `NAV_LINKS`, `STATS`, `TRUST_ITEMS`, `STEPS`, `FEATURES`, `TESTIMONIALS`, `FAQS`, `FOOTER_LINKS` |
+| `components/landing/*.tsx` | Landing page split into 10 section components: `top-nav`, `hero-section`, `trust-bar`, `how-it-works-section`, `features-section`, `security-section`, `testimonials-section`, `faq-section`, `cta-section`, `footer-section` |
 | `components/vcf-upload.tsx` | Drag-and-drop VCF upload with AnimatePresence idle/dragging/success/error states |
 | `components/drug-input.tsx` | Drug combobox with search, comma-separated batch add, brand name aliases, animated removable chips |
 | `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, animated confidence bar, structured AI explanation panel |
@@ -157,14 +159,37 @@ All colors use `oklch()` — never add hardcoded hex values to components.
 ### Custom utility classes
 
 ```css
-.shadow-card        /* subtle 2-layer elevation */
-.shadow-card-md     /* medium elevation */
-.shadow-card-lg     /* large elevation — hero CTAs, modals */
-.hero-gradient      /* radial teal gradient for hero section background */
-.eyebrow            /* section label — xs uppercase tracking-widest text-primary */
-.gradient-text       /* teal gradient applied to text via background-clip */
-.animate-cta-pulse  /* teal glow pulse for ready CTA button */
+.shadow-card            /* subtle 2-layer elevation */
+.shadow-card-md         /* medium elevation */
+.shadow-card-lg         /* large elevation — hero CTAs, modals */
+.hero-gradient          /* radial teal gradient for hero section background */
+.eyebrow                /* section label — xs uppercase tracking-widest text-primary */
+.gradient-text          /* teal gradient applied to text via background-clip */
+.hero-gradient-text     /* bright teal-cyan gradient text for hero (visible on dark bg) */
+.animate-cta-pulse      /* teal glow pulse for ready CTA button */
+.bg-noise               /* SVG fractalNoise texture overlay (3% opacity, mix-blend-mode overlay) */
+.section-border-top     /* centered gradient border line between dark sections (white glow) */
+.section-border-top-light /* variant for light sections (dark gradient) */
+.border-glow            /* neon teal glow border for dark-mode cards */
+.bg-dot-grid            /* molecular dot-grid overlay for hero (animated drift) */
+.bg-dna-helix           /* DNA helix line art texture for hero/CTA backgrounds */
 ```
+
+### Page gradient tokens (landing page, dark→light top→bottom)
+
+```
+--pg-hero        oklch(0.16)  — hero section background
+--pg-hero-mid    oklch(0.18)  — hero bottom gradient
+--pg-trust       oklch(0.21)  — trust bar
+--pg-deep        oklch(0.28)  — how-it-works section
+--pg-mid         oklch(0.40)  — features section
+--pg-mid-light   oklch(0.55)  — unused (available for future sections)
+--pg-light       oklch(0.70)  — security section
+--pg-lighter     oklch(0.82)  — testimonials section
+--pg-near-white  oklch(0.92)  — FAQ + CTA sections
+```
+
+Gradient bridge `<div>`s in `app/page.tsx` smooth transitions between adjacent tokens.
 
 ### Border radius
 
@@ -172,30 +197,35 @@ All colors use `oklch()` — never add hardcoded hex values to components.
 
 ### Animation rules
 
-- All animation components live in `components/motion-primitives.tsx`
+- All reusable animation components live in `components/motion-primitives.tsx`
+- Shared constants: `EASE = [0.16, 1, 0.3, 1]`, `VIEWPORT = { once: true, margin: "-60px" }`
 - Every wrapper checks `useReducedMotion()` and degrades to a plain `<div>` when true
-- `viewport={{ once: true, margin: "0px" }}` — triggers when element enters viewport
-- **Hero section**: use `motion.div` with `animate` directly (not `whileInView`) since it's in the initial viewport on load
-- **Below-fold sections**: use `FadeIn`, `StaggerContainer` / `StaggerItem` which use `whileInView`
+- **Hero section**: use `motion.div` with `animate` directly (not `whileInView`) since it's in the initial viewport on load. Mouse-driven parallax on DNA/dot-grid background (max ±8px, rAF throttled, disabled on mobile/<768px). Scroll-driven glow opacity fade (0.55→0.20 over 600px).
+- **Below-fold sections**: use `FadeInUp`, `FadeIn`, `StaggerContainer` / `StaggerItem` which use `whileInView`
+- **Section headers**: cinematic clip-masked headline reveal (overflow-hidden + `y:"100%"→"0%"`)
+- **Feature/step cards**: single `motion.div` per card with combined `whileInView` + `whileHover` (no nested motion divs). Icon hover via CSS `group-hover:rotate-2 group-hover:scale-105 group-hover:drop-shadow`
+- **Testimonial cards**: fixed-angle hover tilt (`rotateX:2, rotateY:-2`), perspective container, marquee with pause-on-hover
+- **FAQ**: custom Framer Motion `AnimatePresence` accordion (not shadcn), animated height + chevron rotation
+- **Section depth**: `bg-noise` for subtle texture, `section-border-top` for edge glow between sections, `z-[2]` on content wrappers above noise pseudo-element
 - Do NOT use `whileInView` on elements that are visible on page load — they may not re-trigger
 - **CTA pulse**: `.animate-cta-pulse` on the "Generate Pharmacogenomic Report" button when all inputs are filled. Respects `prefers-reduced-motion`.
 
-### Landing page sections (`app/page.tsx`)
+### Landing page sections
 
-Full `"use client"` page. Sub-components (all defined in the same file):
+`app/page.tsx` is a server component that imports from `components/landing/*.tsx`. Each section is a separate `"use client"` file. Shared data lives in `components/landing/data.ts`.
 
-| Component | Section |
-|---|---|
-| `TopNav` | Sticky nav — scroll-aware shadow, mobile hamburger with `AnimatePresence` |
-| `HeroSection` | Headline, dual CTAs, stats grid — animates on mount (not whileInView) |
-| `TrustBar` | Trust signal strip below hero |
-| `HowItWorksSection` | 3-step numbered guide with connecting line |
-| `FeaturesSection` | 6-card `HoverLift` grid |
-| `SecuritySection` | 2-col card with privacy principle checklist |
-| `TestimonialsSection` | 3 clinician quote cards |
-| `FAQSection` | shadcn `Accordion` with 6 questions |
-| `CTASection` | Teal full-width CTA panel |
-| `FooterSection` | 4-column grid with legal disclaimer |
+| File | Component | Section |
+|---|---|---|
+| `top-nav.tsx` | `TopNav` | Sticky nav — progressive blur/shadow on scroll, capsule active indicator, mobile hamburger with `AnimatePresence` |
+| `hero-section.tsx` | `HeroSection` | Layered entrance animation, mouse-driven parallax, scroll-driven glow fade, dual CTAs, stats grid |
+| `trust-bar.tsx` | `TrustBar` | Trust signal strip below hero (5 items with icons) |
+| `how-it-works-section.tsx` | `HowItWorksSection` | 3-step cards with connecting line, staggered scroll reveal, hover lift |
+| `features-section.tsx` | `FeaturesSection` | 6-card grid, single motion.div per card, standardized icon hover (CSS rotate/scale/drop-shadow), 2 "Core" featured cards |
+| `security-section.tsx` | `SecuritySection` | 2-col card — text + animated privacy principle checklist with staggered check marks |
+| `testimonials-section.tsx` | `TestimonialsSection` | 6 clinician quote cards in infinite marquee, fixed-angle hover tilt, pause-on-hover |
+| `faq-section.tsx` | `FAQSection` | 6 questions — custom Framer Motion AnimatePresence accordion (not shadcn), animated height + chevron rotation |
+| `cta-section.tsx` | `CTASection` | Teal full-width CTA panel with DNA helix texture |
+| `footer-section.tsx` | `FooterSection` | 4-column grid with RIFT 2026 badge and legal disclaimer |
 
 ### Analyze page layout (`app/analyze/page.tsx`)
 
