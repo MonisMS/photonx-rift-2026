@@ -99,8 +99,9 @@
   --sidebar-ring:              oklch(0.52  0.14  184.5);
 
   /* ── Page gradient steps (landing page, dark→light top→bottom) ─────────── */
-  --pg-hero:       oklch(0.20 0.085 165);
-  --pg-trust:      oklch(0.24 0.082 165);
+  --pg-hero:       oklch(0.16 0.065 170);
+  --pg-hero-mid:   oklch(0.18 0.075 168);
+  --pg-trust:      oklch(0.21 0.072 168);
   --pg-mid:        oklch(0.88 0.024 165);
   --pg-light:      oklch(0.92 0.015 165);
   --pg-lighter:    oklch(0.95 0.009 165);
@@ -238,10 +239,16 @@
   .bg-dot-grid {
     background-image: radial-gradient(
       circle,
-      oklch(1 0 0 / 0.06) 1px,
+      oklch(1 0 0 / 0.04) 1px,
       transparent 1px
     );
-    background-size: 28px 28px;
+    background-size: 32px 32px;
+  }
+
+  /* ── DNA helix line art (subtle scientific texture for hero) ──────────── */
+  .bg-dna-helix {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='120' viewBox='0 0 60 120'%3E%3Cpath d='M30 0 Q45 15 30 30 Q15 45 30 60 Q45 75 30 90 Q15 105 30 120' fill='none' stroke='white' stroke-opacity='0.035' stroke-width='1'/%3E%3Cpath d='M30 0 Q15 15 30 30 Q45 45 30 60 Q15 75 30 90 Q45 105 30 120' fill='none' stroke='white' stroke-opacity='0.035' stroke-width='1'/%3E%3Cline x1='15' y1='15' x2='45' y2='15' stroke='white' stroke-opacity='0.025' stroke-width='0.5'/%3E%3Cline x1='15' y1='45' x2='45' y2='45' stroke='white' stroke-opacity='0.025' stroke-width='0.5'/%3E%3Cline x1='15' y1='75' x2='45' y2='75' stroke='white' stroke-opacity='0.025' stroke-width='0.5'/%3E%3Cline x1='15' y1='105' x2='45' y2='105' stroke='white' stroke-opacity='0.025' stroke-width='0.5'/%3E%3C/svg%3E");
+    background-size: 60px 120px;
   }
 
   /* ── Neon glow border for dark-mode cards ────────────────────────────────── */

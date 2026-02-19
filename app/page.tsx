@@ -51,71 +51,71 @@ const NAV_LINKS = [
 ];
 
 const STATS = [
-  { value: "10",     label: "Drug–gene pairs"   },
-  { value: "50+",    label: "Variant mappings"  },
-  { value: "<5 sec", label: "Time to report"    },
-  { value: "CPIC",   label: "Evidence standard" },
+  { value: "6",      label: "Pharmacogenes"       },
+  { value: "10",     label: "CPIC drug–gene pairs" },
+  { value: "50+",    label: "Variant diplotypes"   },
+  { value: "Tier 1A", label: "CPIC evidence level" },
 ];
 
 const TRUST_ITEMS = [
-  { icon: BookOpen,    label: "CPIC Clinical Guidelines" },
-  { icon: Microscope,  label: "Peer-reviewed science"    },
-  { icon: Lock,        label: "Browser-side parsing"     },
-  { icon: Zap,         label: "Instant AI analysis"      },
-  { icon: ShieldCheck, label: "No data retention"        },
+  { icon: BookOpen,    label: "CPIC Tier 1A Guidelines"         },
+  { icon: Microscope,  label: "Peer-reviewed evidence base"     },
+  { icon: ShieldCheck, label: "Deterministic risk classification" },
+  { icon: Lock,        label: "Client-side genomic parsing"     },
+  { icon: Zap,         label: "Zero data retention"             },
   ];
 
 const STEPS = [
   {
     icon: FileSearch,
     step: "01",
-    title: "Upload Genetic Data",
-    body:  "Drop a patient's VCF file into PharmaGuard. All variant parsing happens entirely in your browser — no genetic data ever leaves your device or touches a server.",
+    title: "Ingest Genomic Variants",
+    body:  "Upload a patient VCF file. All variant extraction and star-allele resolution occurs entirely in the browser — no genomic data is transmitted, logged, or stored.",
   },
   {
     icon: Pill,
     step: "02",
-    title: "Select Drugs to Evaluate",
-    body:  "Choose from ten clinically validated drug–gene pairs across pain, cardiology, GI, immunology, and oncology. One upload delivers one complete multi-drug report.",
+    title: "Define Drug Panel",
+    body:  "Select from ten CPIC-validated drug–gene interactions spanning pain management, cardiovascular, gastrointestinal, immunosuppressive, and oncology pharmacotherapy.",
   },
   {
     icon: Activity,
     step: "03",
-    title: "Receive Your Clinical Report",
-    body:  "Get risk labels (Safe, Adjust Dosage, Toxic, Ineffective), confidence scores, biological mechanisms, and CPIC-aligned dosing recommendations — in seconds.",
+    title: "Generate Risk Assessment",
+    body:  "Receive deterministic risk classifications (Safe, Adjust Dosage, Toxic, Ineffective), diplotype-level confidence scores, and AI-narrated clinical mechanism explanations.",
   },
 ];
 
 const FEATURES = [
   {
     icon:  ShieldCheck,
-    title: "CPIC Risk Classification",
-    body:  "Safe, Adjust Dosage, Toxic, or Ineffective — determined entirely by peer-reviewed CPIC clinical evidence, not machine learning guesswork.",
+    title: "Deterministic CPIC Classification",
+    body:  "Risk labels are resolved through direct lookup against CPIC diplotype–phenotype–risk tables. No probabilistic model, no inference — fully auditable decision logic.",
   },
   {
     icon:  FlaskConical,
-    title: "AI Clinical Explanations",
-    body:  "Gemini explains the exact molecular mechanism behind each risk outcome — citing the patient's specific rsID, diplotype, and phenotype — in plain clinical language.",
+    title: "Explainable AI Narration",
+    body:  "Each classification is accompanied by an AI-generated clinical explanation citing the patient's specific rsID, diplotype, and metabolizer phenotype — grounded in CPIC evidence.",
   },
   {
     icon:  Zap,
-    title: "Batch Drug Analysis",
-    body:  "Analyze all ten drugs against a patient genome in a single upload. One report per patient visit, one batched AI call.",
+    title: "Parallel Multi-Drug Analysis",
+    body:  "Evaluate up to ten drug–gene interactions per patient in a single session. Each drug is processed independently for progressive, low-latency result delivery.",
   },
   {
     icon:  BarChart3,
-    title: "Confidence Scoring",
-    body:  "Every result carries a transparency score. 95% confidence when both alleles are detected; clearly lower when only partial data is available.",
+    title: "Diplotype Confidence Scoring",
+    body:  "Every classification reports genotype confidence: 95% for fully resolved diplotypes, 70% for single-allele inference, flagged explicitly when data is incomplete.",
   },
   {
     icon:  Lock,
-    title: "Privacy by Design",
-    body:  "VCF parsing runs in your browser via the FileReader API. No health data is transmitted, logged, or retained on any server.",
+    title: "Client-Side Genomic Processing",
+    body:  "VCF variant extraction executes entirely in the browser via the FileReader API. No genomic data is transmitted to, processed on, or retained by any server.",
   },
   {
     icon:  Dna,
-    title: "Alternative Drug Suggestions",
-    body:  "When a drug is flagged as Toxic or Ineffective, PharmaGuard recommends pharmacogenomically appropriate alternatives aligned with CPIC guidance.",
+    title: "Guideline-Aligned Alternatives",
+    body:  "When a drug is classified as Toxic or Ineffective, the system surfaces pharmacogenomically appropriate therapeutic alternatives consistent with CPIC guidance.",
   },
 ];
 
@@ -255,7 +255,7 @@ function TopNav() {
             style={scrolled ? {} : { color: "var(--pg-hero)" }}
           >
             <Link href="/analyze">
-              Start Analysis <ChevronRight className="ml-1 h-3.5 w-3.5" />
+              Clinical Analysis <ChevronRight className="ml-1 h-3.5 w-3.5" />
             </Link>
           </Button>
           <button
@@ -292,7 +292,7 @@ function TopNav() {
           ))}
           <div className="pt-2">
             <Button asChild size="sm" className="w-full">
-              <Link href="/analyze">Start Analysis</Link>
+              <Link href="/analyze">Clinical Analysis</Link>
             </Button>
           </div>
         </motion.div>
@@ -307,16 +307,28 @@ function HeroSection() {
   return (
     <section
       className="relative min-h-screen flex items-center pt-24 pb-0 overflow-hidden"
-      style={{ background: "var(--pg-hero)" }}
+      style={{ background: "linear-gradient(175deg, var(--pg-hero) 0%, var(--pg-hero-mid) 100%)" }}
     >
-      {/* Subtle white dot grid */}
-      <div className="bg-dot-grid absolute inset-0 pointer-events-none opacity-80" aria-hidden />
+      {/* DNA helix line art (scientific texture) */}
+      <div className="bg-dna-helix absolute inset-0 pointer-events-none" aria-hidden />
+
+      {/* Subtle white dot grid — reduced for depth */}
+      <div className="bg-dot-grid absolute inset-0 pointer-events-none opacity-60" aria-hidden />
 
       {/* Soft radial glow from top-center */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[60vh] pointer-events-none"
         style={{
-          background: "radial-gradient(ellipse 70% 55% at 50% -5%, oklch(0.40 0.10 165 / 0.55), transparent 70%)",
+          background: "radial-gradient(ellipse 70% 55% at 50% -5%, oklch(0.35 0.09 170 / 0.50), transparent 70%)",
+        }}
+        aria-hidden
+      />
+
+      {/* Secondary glow — bottom right */}
+      <div
+        className="absolute bottom-0 right-0 w-[50vw] h-[40vh] pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse 80% 80% at 80% 100%, oklch(0.30 0.08 180 / 0.30), transparent 70%)",
         }}
         aria-hidden
       />
@@ -325,10 +337,10 @@ function HeroSection() {
 
         {/* Eyebrow badge */}
         <FadeIn>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-1.5 mb-8">
-            <span className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-white/75">
-              Clinical Pharmacogenomics Platform
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] backdrop-blur-sm px-4 py-1.5 mb-8">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80 animate-pulse" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-white/70">
+              CPIC-Aligned Clinical Decision Support
             </span>
           </div>
         </FadeIn>
@@ -336,18 +348,25 @@ function HeroSection() {
         {/* Headline */}
         <FadeIn delay={0.05}>
           <h1 className="text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-[5.5rem] mb-6 leading-[1.04] text-white">
-            Know Which Drugs Are Safe
+            Genomic-Guided
             <br />
-            <span className="hero-gradient-text">Before You Prescribe</span>
+            <span className="hero-gradient-text">Prescribing</span>
           </h1>
+        </FadeIn>
+
+        {/* Sub-headline — scientific authority */}
+        <FadeIn delay={0.08}>
+          <p className="mx-auto max-w-2xl text-xl sm:text-2xl font-medium text-white/50 mb-6 tracking-tight">
+            Powered by CPIC Clinical Evidence
+          </p>
         </FadeIn>
 
         {/* Subtext */}
         <FadeIn delay={0.1}>
-          <p className="mx-auto max-w-2xl text-lg text-white/65 leading-relaxed mb-10">
-            PharmaGuard analyzes your patient&apos;s genetic profile against peer-reviewed CPIC
-            clinical guidelines — delivering instant drug safety reports explained in plain,
-            actionable language by AI.
+          <p className="mx-auto max-w-2xl text-base text-white/55 leading-relaxed mb-10">
+            Upload a patient&apos;s VCF file and receive deterministic, guideline-aligned
+            pharmacogenomic risk classification — with transparent AI-generated clinical explanations
+            grounded in peer-reviewed CPIC recommendations.
           </p>
         </FadeIn>
 
@@ -361,7 +380,7 @@ function HeroSection() {
               style={{ color: "var(--pg-hero)" }}
             >
               <Link href="/analyze">
-                Analyze a Patient
+                Launch Clinical Analysis
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
@@ -369,22 +388,22 @@ function HeroSection() {
               asChild
               size="lg"
               variant="ghost"
-              className="px-8 h-12 text-base text-white border border-white/25 hover:bg-white/10 hover:text-white"
+              className="px-8 h-12 text-base text-white/70 border border-white/20 hover:bg-white/[0.07] hover:text-white"
             >
-              <a href="#how-it-works">See How It Works</a>
+              <a href="#how-it-works">View Methodology</a>
             </Button>
           </div>
         </FadeIn>
 
         {/* Stats — frosted glass panels */}
-        <StaggerContainer className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-white/12 bg-white/[0.06] mx-auto max-w-2xl">
+        <StaggerContainer className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-white/10 bg-white/[0.04] mx-auto max-w-2xl">
           {STATS.map((stat) => (
             <StaggerItem key={stat.label}>
-              <div className="bg-white/[0.05] backdrop-blur-sm px-6 py-5 text-center">
+              <div className="bg-white/[0.04] backdrop-blur-sm px-6 py-5 text-center">
                 <AnimatedStat className="block text-2xl font-bold text-white tabular-nums">
                   {stat.value}
                 </AnimatedStat>
-                <span className="mt-1 block text-xs text-white/50">{stat.label}</span>
+                <span className="mt-1 block text-[11px] text-white/45 uppercase tracking-wider">{stat.label}</span>
               </div>
             </StaggerItem>
           ))}
@@ -411,8 +430,8 @@ function TrustBar() {
         style={{ background: "var(--pg-trust)" }}
       >
         <div className="mx-auto max-w-5xl px-5">
-          <p className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/45">
-            Built on established clinical science
+          <p className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/40">
+            Grounded in peer-reviewed clinical pharmacogenomics
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10">
             {TRUST_ITEMS.map(({ icon: Icon, label }) => (
@@ -440,12 +459,12 @@ function HowItWorksSection() {
       <div className="mx-auto max-w-5xl px-5">
 
         <FadeIn className="text-center mb-16 md:mb-20">
-          <p className="eyebrow mb-3">How It Works</p>
+          <p className="eyebrow mb-3">Methodology</p>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-            From genetic file to clinical report<br className="hidden sm:block" /> in three steps
+            From VCF variant file to clinical risk report<br className="hidden sm:block" /> in three deterministic steps
           </h2>
           <p className="mx-auto max-w-xl text-muted-foreground">
-            No complex setup. No accounts required. Upload, select, and receive.
+            No account required. No data uploaded. Fully reproducible results.
           </p>
         </FadeIn>
 
@@ -479,7 +498,7 @@ function HowItWorksSection() {
         <FadeIn className="mt-14 text-center" delay={0.1}>
           <Button asChild size="lg" className="gap-2">
             <Link href="/analyze">
-              Try It Now — It&apos;s Free
+              Launch Clinical Analysis
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
@@ -501,13 +520,13 @@ function FeaturesSection() {
       <div className="mx-auto max-w-5xl px-5">
 
         <FadeIn className="text-center mb-16">
-          <p className="eyebrow mb-3">Platform Capabilities</p>
+          <p className="eyebrow mb-3">Clinical Architecture</p>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-            Precision tools built for clinical workflows
+            Evidence-based infrastructure for pharmacogenomic decision support
           </h2>
           <p className="mx-auto max-w-xl text-muted-foreground">
-            Every capability is designed to reduce cognitive load, eliminate guesswork,
-            and surface the information clinicians actually need.
+            Every component is designed to preserve clinical rigor, ensure auditability,
+            and surface actionable pharmacogenomic intelligence at the point of care.
           </p>
         </FadeIn>
 
@@ -535,11 +554,12 @@ function FeaturesSection() {
 
 function SecuritySection() {
   const PRINCIPLES = [
-    "VCF parsed in-browser, never uploaded",
-    "No patient data retained post-session",
-    "Transparent, auditable CPIC logic",
-    "AI explains — never predicts alone",
-    "Open science foundation",
+    "Deterministic CPIC table logic — no ML in risk classification",
+    "VCF parsed in-browser — genomic data never transmitted",
+    "No patient data retained beyond session",
+    "AI narrates clinical mechanisms — never determines risk labels",
+    "Fully auditable decision pathway from variant to recommendation",
+    "Open, reproducible science foundation",
   ];
 
   return (
@@ -558,14 +578,15 @@ function SecuritySection() {
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-accent mb-6">
                   <Lock className="h-6 w-6 text-primary" />
                 </div>
-                <p className="eyebrow mb-3">Clinical Data Principles</p>
+                <p className="eyebrow mb-3">Transparency &amp; Data Sovereignty</p>
                 <h2 className="text-2xl font-bold tracking-tight mb-4">
-                  Built with patient data sovereignty in mind
+                  Auditable architecture. Zero genomic data exposure.
                 </h2>
                 <p className="text-muted-foreground leading-relaxed mb-6 text-sm">
-                  Genetic data is among the most sensitive personal information that exists.
-                  PharmaGuard is architected so that a patient&apos;s raw genomic data never
-                  leaves their clinician&apos;s browser — by design, not by policy.
+                  Genomic data is among the most sensitive clinical information in existence.
+                  PharmaGuard is architected so that raw variant data never leaves the
+                  clinician&apos;s browser — and risk classification is deterministic, not probabilistic.
+                  Every output can be traced from variant to diplotype to phenotype to recommendation.
                 </p>
                 <p className="text-xs text-muted-foreground/70 border-t border-border pt-4">
                   PharmaGuard is built for research and clinical decision support. It is not
@@ -607,12 +628,13 @@ function TestimonialsSection() {
     >
       <div className="mx-auto max-w-5xl px-5">
         <FadeIn className="text-center mb-14">
-          <p className="eyebrow mb-3">From the field</p>
+          <p className="eyebrow mb-3">Clinical Validation</p>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-            Trusted by clinical teams
+            Evaluated by pharmacogenomics practitioners
           </h2>
           <p className="mx-auto max-w-lg text-muted-foreground">
-            Clinicians and pharmacists working on pharmacogenomics workflows share their experience.
+            Clinical pharmacologists, pharmacists, and PGx program coordinators
+            assess PharmaGuard against real-world prescribing workflows.
           </p>
         </FadeIn>
       </div>
@@ -682,12 +704,12 @@ function FAQSection() {
     >
       <div className="mx-auto max-w-3xl px-5">
         <FadeIn className="text-center mb-14">
-          <p className="eyebrow mb-3">FAQ</p>
+          <p className="eyebrow mb-3">Technical FAQ</p>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-            Common questions
+            Frequently asked questions
           </h2>
           <p className="text-muted-foreground">
-            Everything you need to know about PharmaGuard and pharmacogenomic analysis.
+            Technical and clinical context for pharmacogenomic analysis with PharmaGuard.
           </p>
         </FadeIn>
 
@@ -724,21 +746,24 @@ function CTASection() {
     >
       <div className="mx-auto max-w-5xl px-5">
         <FadeIn>
-          <div className="relative overflow-hidden rounded-2xl bg-primary px-8 py-14 md:px-14 text-center shadow-card-lg">
+          <div className="relative overflow-hidden rounded-2xl px-8 py-14 md:px-14 text-center shadow-card-lg" style={{ background: "var(--pg-hero)" }}>
+            {/* DNA helix texture */}
+            <div className="bg-dna-helix absolute inset-0 pointer-events-none" aria-hidden />
             {/* Subtle background circles */}
-            <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5" aria-hidden />
-            <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-white/5" aria-hidden />
+            <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/[0.03]" aria-hidden />
+            <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-white/[0.03]" aria-hidden />
 
             <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/60 mb-4">
-                Ready to get started?
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4">
+                Begin genomic-guided prescribing
               </p>
-              <h2 className="text-3xl font-bold tracking-tight text-primary-foreground sm:text-4xl mb-4">
-                Run your first analysis — free, instant, private.
+              <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-4">
+                Evidence-based risk classification.<br className="hidden sm:block" /> Available now.
               </h2>
-              <p className="mx-auto max-w-lg text-primary-foreground/70 text-sm mb-8 leading-relaxed">
-                Upload a patient&apos;s VCF file, select drugs, and receive a complete pharmacogenomic
-                risk report powered by CPIC guidelines in under 30 seconds.
+              <p className="mx-auto max-w-lg text-white/55 text-sm mb-8 leading-relaxed">
+                Upload a patient VCF file, define a drug panel, and receive a complete
+                pharmacogenomic risk report — deterministic CPIC classification with
+                transparent AI clinical narration.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Button
@@ -749,7 +774,7 @@ function CTASection() {
                   style={{ color: "var(--pg-hero)" }}
                 >
                   <Link href="/analyze">
-                    Analyze a Patient
+                    Launch Clinical Analysis
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -757,9 +782,9 @@ function CTASection() {
                   asChild
                   variant="ghost"
                   size="lg"
-                  className="px-8 h-12 text-base text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+                  className="px-8 h-12 text-base text-white/70 hover:bg-white/[0.07] hover:text-white"
                 >
-                  <a href="#how-it-works">Learn how it works</a>
+                  <a href="#how-it-works">Review methodology</a>
                 </Button>
               </div>
             </div>
@@ -808,7 +833,7 @@ function FooterSection() {
               <span className="font-bold text-base">PharmaGuard</span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Pharmacogenomic risk analysis powered by CPIC clinical guidelines and AI.
+              Deterministic pharmacogenomic risk classification powered by CPIC clinical evidence and explainable AI.
             </p>
             <div className="mt-4 flex gap-2">
               <Badge variant="secondary" className="text-xs font-normal">

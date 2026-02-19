@@ -37,7 +37,8 @@ Package manager is **pnpm**. Never use npm or yarn.
 | Animations | framer-motion | 12.x |
 | AI SDK | Vercel AI SDK (`ai` + `@ai-sdk/google` + `@ai-sdk/openai`) | ai 6.x |
 | Primary AI | Gemini `gemini-2.0-flash` → `gemini-2.0-flash-lite` (free) | — |
-| Fallback AI | OpenAI `gpt-4o-mini` (paid, last resort) | — |
+| Fallback AI | OpenRouter (free: Llama 70B/8B, Mistral 7B) → OpenAI `gpt-4o-mini` (paid) | — |
+| PDF Export | jspdf + jspdf-autotable | 4.x |
 | Icons | lucide-react | — |
 | Type safety | TypeScript strict mode | 5.x |
 
@@ -50,10 +51,10 @@ Package manager is **pnpm**. Never use npm or yarn.
 | Route | File | Purpose |
 |---|---|---|
 | `GET /` | `app/page.tsx` | Full landing page — hero, features, how-it-works, FAQ, footer |
-| `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state and API calls |
+| `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state, localStorage persistence, API calls |
 | `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates input + CPIC lookup → returns `CPICResult[]` instantly, zero AI calls |
-| `POST /api/explain` | `app/api/explain/route.ts` | Phase 2 (batch): takes `CPICResult[]`, makes **1 batched AI call** → returns `AnalysisResult[]` |
-| `POST /api/explain-single` | `app/api/explain-single/route.ts` | Phase 2 (parallel): takes **1** `CPICResult`, returns **1** `AnalysisResult`. Client fires N in parallel for progressive card loading |
+| `POST /api/explain` | `app/api/explain/route.ts` | Phase 2 (batch, legacy): takes `CPICResult[]`, makes **1 batched AI call** → returns `AnalysisResult[]` |
+| `POST /api/explain-single` | `app/api/explain-single/route.ts` | Phase 2 (parallel, primary): takes **1** `CPICResult`, returns **1** `AnalysisResult`. Client fires N in parallel for progressive card loading |
 | `GET /api/test-keys` | `app/api/test-keys/route.ts` | Dev utility: verifies all configured AI providers are live |
 
 ### The core pipeline (how a request flows)
@@ -61,9 +62,11 @@ Package manager is **pnpm**. Never use npm or yarn.
 ```
 Browser: FileReader reads .vcf as text
        → lib/vcf-parser.ts extracts variants [{gene, starAllele, rsid}]
+       → Gene phenotype heatmap rendered instantly (client-side CPIC lookup)
        → POST /api/analyze with {variants, drugs[], patientId}
-       → renders risk cards instantly (Phase 1 done, no AI involved)
+       → Renders risk cards instantly (Phase 1 done, no AI involved)
        → N parallel POST /api/explain-single → cards fill progressively
+       → All state persisted to localStorage (survives refresh)
 
 Server (Phase 1 — /api/analyze):
   lib/validator.ts   → validates variants / drugs / patientId
@@ -73,18 +76,20 @@ Server (Phase 1 — /api/analyze):
 Server (Phase 2 — /api/explain-single × N in parallel):
   lib/gemini.ts      → buildSinglePrompt(1 drug) → small focused prompt
   lib/ai.ts          → generateWithFallback(prompt) → 1 API call per drug
-  → merges explanations[N] into full AnalysisResult[]
+  → each card fills independently as its response arrives (~2-3s for first)
 ```
 
 ### Critical architectural decisions
 
 - **VCF is parsed in the browser** (FileReader API), not uploaded to the server. This avoids Vercel's 4.5MB body size limit (VCF files can be up to 5MB).
 - **AI is used only for explanation generation**, not risk prediction. Risk is determined by `lib/cpic.ts` lookup tables — deterministic, matches test cases exactly.
-- **All drugs are batched into a single AI call** regardless of how many are selected. The prompt includes all N drugs and expects a JSON array of N objects back. This is 1 API call whether you select 1 drug or all 6.
-- **Provider waterfall in `generateWithFallback()`**: tries Gemini flash → Gemini flash-lite → OpenAI gpt-4o-mini. Quota/429 errors are caught silently; the next provider is tried automatically.
+- **Phase 2 uses parallel per-drug AI calls** (not one batched call). Each drug gets its own `/api/explain-single` request fired in parallel from the client. This means the first explanation appears in ~2-3s instead of waiting for all drugs to complete.
+- **Provider waterfall in `generateWithFallback()`**: tries Gemini flash → Gemini flash-lite → OpenRouter (3 free models) → OpenAI gpt-4o-mini. Quota/429 errors are caught silently; the next provider is tried automatically.
 - **Diplotype alleles are always sorted** (lower number first: `*1/*4` not `*4/*1`) to ensure consistent table matching.
 - **If only one allele found** for a gene, `buildDiplotype` prepends `*1` (normal allele) as the other copy.
-- **Phase 1 and Phase 2 are separate HTTP requests**: the browser renders CPIC results immediately, then enriches them with AI explanations.
+- **Phase 1 and Phase 2 are separate HTTP requests**: the browser renders CPIC results immediately, then enriches them with AI explanations progressively.
+- **Session persistence via localStorage**: all state (patient ID, variants, drugs, results, AI explanations, metrics) is saved to `localStorage` under key `pharmaguard-session`. Sessions auto-expire after 24 hours. "New Analysis" button clears the session.
+- **Gene phenotype heatmap computed client-side**: after VCF upload, `buildDiplotype()` and `getPhenotype()` from `lib/cpic.ts` run in the browser to show a per-gene phenotype preview before any API call.
 
 ### Key files
 
@@ -92,26 +97,28 @@ Server (Phase 2 — /api/explain-single × N in parallel):
 |---|---|
 | `lib/types.ts` | All TypeScript interfaces — the JSON schema contract everything must follow |
 | `lib/vcf-parser.ts` | Parses VCF text, extracts `GENE`, `STAR`, `RS` from INFO column |
-| `lib/cpic.ts` | `DRUG_GENE_MAP`, diplotype→phenotype tables, phenotype+drug→risk tables for all 6 genes × 6 drugs |
+| `lib/cpic.ts` | `DRUG_GENE_MAP`, `CPIC_REFERENCES`, diplotype→phenotype tables, phenotype+drug→risk tables for 6 genes × 10 drugs |
 | `lib/validator.ts` | Server-side validation of `variants`, `drugs`, and `patientId` before CPIC lookup |
-| `lib/ai.ts` | `generateWithFallback(prompt)` — tries all Gemini keys + models, then OpenAI. `getKeyStatus()` for health check |
-| `lib/gemini.ts` | `buildBatchPrompt()` compacts all drugs into one prompt; `explainAll()` makes 1 API call and parses JSON array |
+| `lib/ai.ts` | `generateWithFallback(prompt)` — tries Gemini → OpenRouter → OpenAI. `getKeyStatus()` for health check |
+| `lib/gemini.ts` | `explainSingle()` for per-drug prompts (primary); `explainAll()` for batch (legacy). Includes fallback explanations |
+| `lib/pdf-report.ts` | `generatePDFReport()` — client-side PDF generation using jspdf + jspdf-autotable. Full clinical report layout |
 | `lib/utils.ts` | `cn()` helper (clsx + tailwind-merge) |
-| `app/api/analyze/route.ts` | Phase 1 orchestration — exports `CPICResult` type used by `/api/explain` |
-| `app/api/explain/route.ts` | Phase 2 — calls `explainAll()` once, merges results into full `AnalysisResult[]` |
+| `app/api/analyze/route.ts` | Phase 1 orchestration — exports `CPICResult` type |
+| `app/api/explain-single/route.ts` | Phase 2 (primary) — single drug explain, called N times in parallel |
+| `app/api/explain/route.ts` | Phase 2 (legacy batch) — calls `explainAll()` once |
 | `components/motion-primitives.tsx` | Reusable framer-motion wrappers: `FadeIn`, `FadeInSimple`, `StaggerContainer`, `StaggerItem`, `HoverLift`, `ScaleIn`, `AnimatedStat` |
 | `components/vcf-upload.tsx` | Drag-and-drop VCF upload with AnimatePresence idle/dragging/success/error states |
-| `components/drug-input.tsx` | Drug selection grid — 6 toggle cards with category badges and animated check indicator |
-| `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, animated confidence bar, AI explanation accordion |
+| `components/drug-input.tsx` | Drug combobox with search, comma-separated batch add, brand name aliases, animated removable chips |
+| `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, animated confidence bar, structured AI explanation panel |
 
 ### Supported genes and their drugs
 ```
-CYP2D6  → CODEINE
-CYP2C19 → CLOPIDOGREL
-CYP2C9  → WARFARIN
+CYP2D6  → CODEINE, TRAMADOL
+CYP2C19 → CLOPIDOGREL, OMEPRAZOLE
+CYP2C9  → WARFARIN, CELECOXIB
 SLCO1B1 → SIMVASTATIN
 TPMT    → AZATHIOPRINE
-DPYD    → FLUOROURACIL
+DPYD    → FLUOROURACIL, CAPECITABINE
 ```
 
 ### Risk labels and severity levels
@@ -150,12 +157,13 @@ All colors use `oklch()` — never add hardcoded hex values to components.
 ### Custom utility classes
 
 ```css
-.shadow-card      /* subtle 2-layer elevation */
-.shadow-card-md   /* medium elevation */
-.shadow-card-lg   /* large elevation — hero CTAs, modals */
-.hero-gradient    /* radial teal gradient for hero section background */
-.eyebrow          /* section label — xs uppercase tracking-widest text-primary */
-.gradient-text    /* teal gradient applied to text via background-clip */
+.shadow-card        /* subtle 2-layer elevation */
+.shadow-card-md     /* medium elevation */
+.shadow-card-lg     /* large elevation — hero CTAs, modals */
+.hero-gradient      /* radial teal gradient for hero section background */
+.eyebrow            /* section label — xs uppercase tracking-widest text-primary */
+.gradient-text       /* teal gradient applied to text via background-clip */
+.animate-cta-pulse  /* teal glow pulse for ready CTA button */
 ```
 
 ### Border radius
@@ -170,6 +178,7 @@ All colors use `oklch()` — never add hardcoded hex values to components.
 - **Hero section**: use `motion.div` with `animate` directly (not `whileInView`) since it's in the initial viewport on load
 - **Below-fold sections**: use `FadeIn`, `StaggerContainer` / `StaggerItem` which use `whileInView`
 - Do NOT use `whileInView` on elements that are visible on page load — they may not re-trigger
+- **CTA pulse**: `.animate-cta-pulse` on the "Generate Pharmacogenomic Report" button when all inputs are filled. Respects `prefers-reduced-motion`.
 
 ### Landing page sections (`app/page.tsx`)
 
@@ -190,11 +199,20 @@ Full `"use client"` page. Sub-components (all defined in the same file):
 
 ### Analyze page layout (`app/analyze/page.tsx`)
 
-- **Sticky topbar** with back-to-home link and "Patient Analysis" badge
-- **Input card** with three numbered sections (01 Patient Details / 02 Genetic Data / 03 Drug Selection)
-- `PhaseIndicator` component shows which phase (CPIC vs AI) is running, with description
-- Results appear below with staggered card mount animations
-- `AnimatePresence` gates the skeleton cards (phase=analyzing) and results (phase=explaining|done)
+- **Sticky topbar** with back-to-home link, "Patient Analysis" badge, and "New Analysis" clear button
+- **Warm title** with human subtitle ("Preventing adverse drug reactions...") and inline trust signals
+- **Input card** with visual hierarchy:
+  - Section 01 (Patient ID) — muted background, supporting role
+  - Section 02 (VCF Upload) — teal left accent border, primary action, privacy badge, gene phenotype heatmap after upload
+  - Section 03 (Drug Selection) — teal left accent border, combobox with chips
+- **Readiness indicator** — green "Ready to generate report" bar when all inputs filled
+- **"What happens next" guidance** — two-phase preview before clicking CTA
+- **CTA button** — large, "Generate Pharmacogenomic Report", teal pulse animation when ready
+- `PhaseIndicator` shows which phase (CPIC vs AI) is running
+- **Results section**: performance metrics bar, partial genotype warning, drug comparison table, per-drug result cards with progressive AI explanation loading
+- **System Architecture accordion** — appears below results only (collapsed by default)
+- **Export options**: Download PDF (clinical report), Copy JSON, Download JSON
+- **Session persistence**: all state saved to localStorage, survives page refresh, auto-expires after 24h
 
 ---
 
@@ -218,14 +236,16 @@ GOOGLE_API_KEY_1=   # primary Gemini key (free, ~30 req/day per key)
 GOOGLE_API_KEY_2=   # teammate key
 GOOGLE_API_KEY_3=   # teammate key
 GOOGLE_API_KEY_4=   # teammate key
-OPENAI_API_KEY=     # paid fallback — gpt-4o-mini, ~$0.0007 per 6-drug run
+OPENROUTER_API_KEY= # free fallback — Llama 3.3 70B, Llama 3.1 8B, Mistral 7B
+OPENAI_API_KEY=     # paid last resort — gpt-4o-mini, ~$0.0007 per drug
 ```
 
 `generateWithFallback()` in `lib/ai.ts` tries providers in this exact order:
 1. `gemini-2.0-flash` × all 4 Google keys
 2. `gemini-2.0-flash-lite` × all 4 Google keys
-3. `gpt-4o-mini` via `OPENAI_API_KEY` (only if set)
-4. Returns `null` → `explainAll()` uses fallback text, app still works
+3. OpenRouter free models: Llama 3.3 70B → Llama 3.1 8B → Mistral 7B
+4. `gpt-4o-mini` via `OPENAI_API_KEY` (only if set)
+5. Returns `null` → `explainSingle()` uses fallback text, app still works
 
 Hit `/api/test-keys` in the browser to see which providers are live and which keys are configured.
 
@@ -233,12 +253,13 @@ Hit `/api/test-keys` in the browser to see which providers are live and which ke
 
 ## AI Cost Reference
 
-| Drugs selected | ~Tokens/run | OpenAI cost/run | $2 covers |
+| Drugs selected | ~Tokens/drug | OpenAI cost/drug | $2 covers |
 |---|---|---|---|
-| 1 drug | ~600 | ~$0.0001 | ~20,000 runs |
-| 6 drugs (all) | ~1,070 | ~$0.0007 | ~2,800 runs |
+| 1 drug | ~300 | ~$0.00005 | ~40,000 runs |
+| 6 drugs (parallel) | ~300 each | ~$0.0003 total | ~6,600 runs |
+| 10 drugs (parallel) | ~300 each | ~$0.0005 total | ~4,000 runs |
 
-OpenAI only activates after all Gemini keys are quota-exhausted. Real spend is minimal for a hackathon.
+OpenAI only activates after all Gemini + OpenRouter keys are exhausted. Real spend is minimal for a hackathon.
 
 ---
 
@@ -259,4 +280,5 @@ Currently installed: `card`, `button`, `input`, `badge`, `separator`, `skeleton`
 
 Target: **Vercel**. Set these env vars in the Vercel dashboard before going live:
 - All 4 `GOOGLE_API_KEY_*` vars (free Gemini keys)
-- `OPENAI_API_KEY` (paid fallback — strongly recommended so the app works even when Gemini is exhausted)
+- `OPENROUTER_API_KEY` (free fallback — strongly recommended)
+- `OPENAI_API_KEY` (paid last resort — recommended so the app works even when free providers are exhausted)
