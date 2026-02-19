@@ -1,36 +1,224 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PharmaGuard — Pharmacogenomic Risk Prediction System
 
-## Getting Started
+> RIFT 2026 Hackathon · Pharmacogenomics / Explainable AI Track
 
-First, run the development server:
+PharmaGuard analyzes a patient's genetic data (VCF file) and predicts personalized drug risks based on published CPIC clinical guidelines, with AI-generated explanations powered by Google Gemini.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## Links
+
+| | |
+|---|---|
+| **Live Demo** | `https://your-deployment.vercel.app` ← replace after deploy |
+| **Demo Video** | `https://linkedin.com/...` ← replace after recording |
+| **GitHub** | `https://github.com/your-org/photonx-rift-2026` |
+
+---
+
+## What It Does
+
+Upload a patient's `.vcf` file and select drugs. PharmaGuard:
+
+1. Parses genetic variants from the VCF (GENE, STAR, RS info tags)
+2. Determines diplotype and metabolizer phenotype per gene
+3. Looks up CPIC guidelines to assign risk: **Safe / Adjust Dosage / Toxic / Ineffective / Unknown**
+4. Calls Google Gemini to generate a plain-English clinical explanation
+5. Returns a structured JSON report matching the required schema
+
+Supported genes: `CYP2D6` `CYP2C19` `CYP2C9` `SLCO1B1` `TPMT` `DPYD`
+
+Supported drugs: `CODEINE` `WARFARIN` `CLOPIDOGREL` `SIMVASTATIN` `AZATHIOPRINE` `FLUOROURACIL`
+
+---
+
+## Architecture
+
+```
+Browser
+  └── FileReader parses .vcf text (avoids server upload size limits)
+  └── Sends extracted variants JSON to API
+
+POST /api/analyze  (Phase 1 — instant)
+  └── lib/validator.ts  → validates every variant server-side
+  └── lib/cpic.ts       → diplotype → phenotype → risk label + severity
+  └── Returns CPICResult[] in < 200ms
+
+POST /api/explain  (Phase 2 — parallel Gemini calls)
+  └── lib/gemini.ts     → builds prompt per drug, calls Gemini in parallel
+  └── lib/ai.ts         → round-robin rotation across 4 API keys
+  └── Returns full AnalysisResult[] with llm_generated_explanation
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The risk logic is **fully deterministic** (CPIC lookup tables). Gemini is used only for generating clinical explanations — it does not make the risk decision.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tech Stack
 
-## Learn More
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| AI | Google Gemini 2.0 Flash via Vercel AI SDK |
+| Deployment | Vercel |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Installation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Clone the repo
+git clone https://github.com/your-org/photonx-rift-2026
+cd photonx-rift-2026
 
-## Deploy on Vercel
+# Install dependencies
+pnpm install
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Set up environment variables
+cp .env.example .env.local
+# Add your Gemini API keys to .env.local
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Start dev server
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## Environment Setup
+
+Create `.env.local` with up to 4 Gemini API keys (get them free at [aistudio.google.com](https://aistudio.google.com/apikey)):
+
+```
+GOOGLE_API_KEY_1=your_key_here
+GOOGLE_API_KEY_2=your_key_here   # optional
+GOOGLE_API_KEY_3=your_key_here   # optional
+GOOGLE_API_KEY_4=your_key_here   # optional
+```
+
+Multiple keys enable round-robin rotation to stay within free tier rate limits. Only `GOOGLE_API_KEY_1` is required.
+
+---
+
+## API Reference
+
+### `POST /api/analyze`
+
+Phase 1 — runs CPIC logic, returns instantly.
+
+**Request:**
+```json
+{
+  "patientId": "PATIENT_001",
+  "variants": [
+    { "gene": "CYP2D6", "starAllele": "*4", "rsid": "rs3892097" }
+  ],
+  "drugs": ["CODEINE", "WARFARIN"]
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "patient_id": "PATIENT_001",
+      "drug": "CODEINE",
+      "timestamp": "2026-02-19T10:00:00.000Z",
+      "risk_assessment": {
+        "risk_label": "Ineffective",
+        "confidence_score": 0.7,
+        "severity": "low"
+      },
+      "pharmacogenomic_profile": {
+        "primary_gene": "CYP2D6",
+        "diplotype": "*1/*4",
+        "phenotype": "IM",
+        "detected_variants": [
+          { "rsid": "rs3892097", "gene": "CYP2D6", "star_allele": "*4" }
+        ]
+      },
+      "clinical_recommendation": {
+        "summary": "...",
+        "action": "..."
+      },
+      "quality_metrics": {
+        "vcf_parsing_success": true,
+        "variants_detected": 1,
+        "genes_analyzed": ["CYP2D6"]
+      }
+    }
+  ]
+}
+```
+
+### `POST /api/explain`
+
+Phase 2 — adds Gemini-generated clinical explanations to Phase 1 results.
+
+**Request:** `{ "results": [ ...CPICResult ] }` (output from `/api/analyze`)
+
+**Response:** Same structure with `llm_generated_explanation` added to each result:
+```json
+{
+  "llm_generated_explanation": {
+    "summary": "This patient is an Intermediate Metabolizer for CYP2D6...",
+    "mechanism": "The rs3892097 variant in CYP2D6 (*4 allele) creates...",
+    "recommendation": "Consider alternative analgesics per CPIC guidelines..."
+  }
+}
+```
+
+---
+
+## Usage
+
+1. Go to the live URL and click **Get Started**
+2. Enter a **Patient ID**
+3. Upload a `.vcf` file (drag & drop or file picker, max 5MB)
+4. Select one or more drugs to analyze
+5. Click **Analyze**
+6. Risk badges appear instantly (Phase 1)
+7. AI explanations load within 3–5 seconds (Phase 2)
+8. Download the full JSON report or copy to clipboard
+
+Sample VCF files for testing are available on the analyze page.
+
+---
+
+## Supported Bug Types / Risk Labels
+
+| Risk Label | Meaning |
+|---|---|
+| **Safe** | Standard dosing appropriate |
+| **Adjust Dosage** | Dose modification required — see recommendation |
+| **Toxic** | Avoid this drug — dangerous accumulation risk |
+| **Ineffective** | Drug cannot work — metabolic pathway non-functional |
+| **Unknown** | Insufficient variant data for prediction |
+
+---
+
+## Known Limitations
+
+- Covers 6 genes and 6 drugs only (as specified in the problem statement)
+- CPIC tables include common star alleles; rare/novel combinations return `Unknown`
+- Gemini explanation is informational — not a substitute for clinical pharmacist review
+- Single-sample VCF only; multi-sample VCFs use the first sample column
+
+---
+
+## Team Members
+
+| Name | Role |
+|---|---|
+| Member 1 | Lead Developer |
+| Member 2 | Research & Domain |
+| Member 3 | Design & Presentation |
+| Member 4 | Documentation & Video |
+
+---
+
+*PharmaGuard · RIFT 2026 · For clinical research and educational use only*

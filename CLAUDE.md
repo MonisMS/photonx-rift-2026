@@ -27,37 +27,60 @@ Package manager is **pnpm**. Never use npm or yarn.
 
 ---
 
+## Tech Stack
+
+| Layer | Choice | Version |
+|---|---|---|
+| Framework | Next.js (App Router) | 16.1.6 |
+| UI library | React | 19.2.3 |
+| Styling | Tailwind CSS v4 + shadcn/ui (new-york) | v4 |
+| AI SDK | Vercel AI SDK (`ai` + `@ai-sdk/google`) | ai 6.x |
+| Gemini model | `gemini-2.0-flash` (default), `gemini-2.0-flash-lite` | — |
+| Icons | lucide-react | — |
+| Type safety | TypeScript strict mode | 5.x |
+
+---
+
 ## Architecture
 
 ### Routes
 
 | Route | File | Purpose |
 |---|---|---|
-| `GET /` | `app/page.tsx` | Landing page only — "Get Started" links to `/analyze` |
-| `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state and API calls live here |
-| `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates + CPIC → returns instantly |
-| `POST /api/explain` | `app/api/explain/route.ts` | Phase 2: Gemini explanations → parallel calls |
+| `GET /` | `app/page.tsx` | Landing page — "Get Started" links to `/analyze` |
+| `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state and API calls |
+| `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates input + CPIC lookup → returns `CPICResult[]` instantly |
+| `POST /api/explain` | `app/api/explain/route.ts` | Phase 2: takes `CPICResult[]`, adds Gemini explanations → returns `AnalysisResult[]` |
+| `GET /api/test-keys` | `app/api/test-keys/route.ts` | Dev utility: verifies Gemini API keys are working |
 
 ### The core pipeline (how a request flows)
 
 ```
 Browser: FileReader reads .vcf as text
-       → lib/vcf-parser.ts extracts variants [{gene, star, rsid}]
+       → lib/vcf-parser.ts extracts variants [{gene, starAllele, rsid}]
        → POST /api/analyze with {variants, drugs[], patientId}
-       → renders risk badges instantly (Phase 1)
+       → renders risk badges instantly (Phase 1 done)
        → POST /api/explain → fills in Gemini explanations (Phase 2)
 
-Server: lib/cpic.ts → diplotype → phenotype → risk label + severity
-      + lib/ai.ts  → Gemini generates clinical explanation (parallel, one call per drug)
-      → returns AnalysisResult[] matching exact JSON schema from PLAN.md
+Server (Phase 1 — /api/analyze):
+  lib/validator.ts   → validates variants/drugs/patientId
+  lib/cpic.ts        → buildDiplotype → getPhenotype → getRisk + getConfidence
+  → returns CPICResult[] (no LLM call here)
+
+Server (Phase 2 — /api/explain):
+  lib/gemini.ts      → explainAll(inputs) runs all Gemini calls via Promise.all
+  lib/ai.ts          → getModel("flash") + round-robin key rotation
+  → merges explanations into full AnalysisResult[]
 ```
 
 ### Critical architectural decisions
 
 - **VCF is parsed in the browser** (FileReader API), not uploaded to the server. This avoids Vercel's 4.5MB body size limit (VCF files can be up to 5MB).
 - **Gemini is used only for explanation generation**, not risk prediction. Risk is determined by `lib/cpic.ts` lookup tables — deterministic, matches test cases exactly.
-- **All drug analyses run in parallel** via `Promise.all` to avoid slow sequential Gemini calls.
-- **Diplotype alleles are always sorted** (lower number first: `*1/*4` not `*4/*1`) to ensure consistent test case matching.
+- **All drug analyses run in parallel** via `Promise.all` in `lib/gemini.ts → explainAll()`.
+- **Diplotype alleles are always sorted** (lower number first: `*1/*4` not `*4/*1`) to ensure consistent table matching.
+- **If only one allele found** for a gene, `buildDiplotype` prepends `*1` (normal allele) as the other copy.
+- **Phase 1 and Phase 2 are separate API calls**: the browser renders CPIC results immediately, then enriches them with explanations.
 
 ### Key files
 
@@ -65,9 +88,16 @@ Server: lib/cpic.ts → diplotype → phenotype → risk label + severity
 |---|---|
 | `lib/types.ts` | All TypeScript interfaces — the JSON schema contract everything must follow |
 | `lib/vcf-parser.ts` | Parses VCF text, extracts `GENE`, `STAR`, `RS` from INFO column |
-| `lib/cpic.ts` | DRUG_GENE_MAP, diplotype→phenotype tables, phenotype+drug→risk tables for all 6 genes × 6 drugs |
-| `lib/ai.ts` | Gemini provider with 4-key round-robin rotation + fallback on 429 |
-| `app/api/analyze/route.ts` | Orchestrates the full pipeline, returns `AnalysisResult[]` |
+| `lib/cpic.ts` | `DRUG_GENE_MAP`, diplotype→phenotype tables, phenotype+drug→risk tables for all 6 genes × 6 drugs |
+| `lib/validator.ts` | Server-side validation of `variants`, `drugs`, and `patientId` before CPIC lookup |
+| `lib/ai.ts` | Gemini provider: `getModel(key)` with 4-key round-robin rotation; `getKeyStatus()` for health check |
+| `lib/gemini.ts` | Builds Gemini prompts, parses JSON responses, `explainAll()` runs all drugs in parallel |
+| `lib/utils.ts` | `cn()` helper (clsx + tailwind-merge) |
+| `app/api/analyze/route.ts` | Phase 1 orchestration — exports `CPICResult` type used by `/api/explain` |
+| `app/api/explain/route.ts` | Phase 2 — merges Gemini explanations into full `AnalysisResult[]` |
+| `components/vcf-upload.tsx` | Drag-and-drop VCF file upload, parses in browser via FileReader |
+| `components/drug-input.tsx` | Drug selection grid (toggle buttons for all 6 supported drugs) |
+| `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, confidence bar, AI explanation accordion |
 
 ### Supported genes and their drugs
 ```
@@ -79,6 +109,15 @@ TPMT    → AZATHIOPRINE
 DPYD    → FLUOROURACIL
 ```
 
+### Risk labels and severity levels
+```
+Safe          → severity: none
+Adjust Dosage → severity: moderate or high
+Toxic         → severity: high or critical
+Ineffective   → severity: low or high
+Unknown       → severity: none (no CPIC data for this phenotype)
+```
+
 ### Confidence score rules
 ```
 Both alleles identified in VCF  → 0.95
@@ -88,16 +127,29 @@ No alleles found for gene       → 0.30, phenotype = "Unknown"
 
 ---
 
+## Sample VCF Files
+
+Located in `public/samples/` — linked from the analyze page:
+
+| File | What it tests |
+|---|---|
+| `sample_all_normal.vcf` | All 6 genes as `*1` NM — all drugs Safe |
+| `sample_codeine_pm.vcf` | CYP2D6 `*4/*4` (PM) — Codeine Ineffective |
+| `sample_codeine_toxic.vcf` | CYP2D6 with `*4` variants (same diplotype, different patient ID) |
+| `sample_multi_risk.vcf` | Multiple genes with risk variants — covers Adjust Dosage + Toxic cases |
+
+---
+
 ## Environment Variables
 
 ```
-GOOGLE_API_KEY_1=   # primary Gemini key
+GOOGLE_API_KEY_1=   # primary Gemini key (required)
 GOOGLE_API_KEY_2=   # teammate key
 GOOGLE_API_KEY_3=   # teammate key
 GOOGLE_API_KEY_4=   # teammate key
 ```
 
-`lib/ai.ts` automatically rotates across all non-empty keys. If a key hits a 429 rate limit, it silently falls back to the next key.
+`lib/ai.ts` loads keys lazily at request time (not at module load) and rotates across all non-empty keys. Hit `/api/test-keys` in the browser to verify keys are working.
 
 ---
 
@@ -108,7 +160,7 @@ Components are added via:
 pnpm dlx shadcn@latest add <component-name>
 ```
 
-Config is in `components.json`. Style is `new-york`, Tailwind v4, RSC-enabled. Installed components live in `components/ui/`.
+Config is in `components.json`. Style is `new-york`, Tailwind v4, RSC-enabled. Installed components live in `components/ui/`. Uses unified `radix-ui` package (not `@radix-ui/react-*`).
 
 ---
 

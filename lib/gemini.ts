@@ -60,13 +60,14 @@ async function explainDrug(input: ExplainInput): Promise<LLMExplanation> {
 
     const parsed = JSON.parse(extractJSON(text)) as LLMExplanation;
 
-    // Ensure all fields are present
     return {
       summary:        parsed.summary        || FALLBACK_EXPLANATION.summary,
       mechanism:      parsed.mechanism      || FALLBACK_EXPLANATION.mechanism,
       recommendation: parsed.recommendation || FALLBACK_EXPLANATION.recommendation,
     };
-  } catch {
+  } catch (err) {
+    // Log the real error so it shows in Vercel function logs
+    console.error(`[PharmaGuard] Gemini call failed for ${input.drug}:`, err);
     return FALLBACK_EXPLANATION;
   }
 }
