@@ -13,8 +13,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { VCFUpload }         from "@/components/vcf-upload";
 import { DrugInput }         from "@/components/drug-input";
 import { ResultCard }        from "@/components/result-card";
-import type { VCFVariant, SupportedDrug, AnalysisResult } from "@/lib/types";
+import type { VCFVariant, SupportedDrug, SupportedGene, AnalysisResult } from "@/lib/types";
 import { generatePDFReport }   from "@/lib/pdf-report";
+import { buildDiplotype, getPhenotype } from "@/lib/cpic";
 import {
   Download,
   Copy,
@@ -33,6 +34,7 @@ import {
   Heart,
   Shield,
   Lock,
+  CircleCheck,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -292,35 +294,60 @@ export default function AnalyzePage() {
                 }}
                 onClear={() => setVariants([])}
               />
-              {/* ── Genotype confidence panel ── */}
+              {/* ── Genotype confidence + gene phenotype heatmap ── */}
               {variants.length > 0 && (() => {
-                const ALL_GENES = ["CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD"] as const;
+                const ALL_GENES: SupportedGene[] = ["CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD"];
                 const foundGenes = new Set(variants.map((v) => v.gene));
                 const coverage = foundGenes.size;
                 const completeness = coverage >= 5 ? "High" : coverage >= 3 ? "Moderate" : "Low";
                 const compColor = coverage >= 5 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : coverage >= 3 ? "text-amber-700 bg-amber-50 border-amber-200" : "text-orange-700 bg-orange-50 border-orange-200";
                 const actionableCount = variants.filter((v) => v.starAllele !== "*1").length;
+
+                const PHENOTYPE_HEAT: Record<string, string> = {
+                  PM:  "bg-red-100 text-red-700 border-red-200",
+                  IM:  "bg-amber-100 text-amber-700 border-amber-200",
+                  NM:  "bg-emerald-100 text-emerald-700 border-emerald-200",
+                  RM:  "bg-blue-100 text-blue-700 border-blue-200",
+                  URM: "bg-violet-100 text-violet-700 border-violet-200",
+                  Unknown: "bg-muted text-muted-foreground border-border",
+                };
+                const PHENOTYPE_FULL: Record<string, string> = {
+                  PM: "Poor Metabolizer", IM: "Intermediate", NM: "Normal",
+                  RM: "Rapid", URM: "Ultrarapid", Unknown: "—",
+                };
+
                 return (
-                  <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3 space-y-2.5">
-                    <div className="space-y-1">
+                  <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3 space-y-3">
+                    {/* Summary line */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                       <p className="flex items-center gap-1.5 text-xs text-emerald-800">
                         <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                        <span className="font-bold">{coverage} of {ALL_GENES.length} pharmacogenomic genes detected</span>
+                        <span className="font-bold">{coverage}/{ALL_GENES.length} genes</span>
+                        <span className="text-emerald-700 font-normal">· {variants.length} variant{variants.length > 1 ? "s" : ""}{actionableCount > 0 ? ` · ${actionableCount} actionable` : ""}</span>
                       </p>
-                      <p className="flex items-center gap-1.5 text-xs text-emerald-800 pl-5">
-                        <span>{variants.length} variant{variants.length > 1 ? "s" : ""} identified{actionableCount > 0 ? ` · ${actionableCount} actionable` : ""}</span>
-                      </p>
-                      <p className="flex items-center gap-1.5 text-xs pl-5">
-                        <span className="text-emerald-700">Genotype completeness:</span>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border ${compColor}`}>{completeness}</span>
-                      </p>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold border ${compColor}`}>{completeness}</span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {ALL_GENES.map((g) => (
-                        <span key={g} className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-mono font-semibold ${foundGenes.has(g) ? "bg-emerald-100 text-emerald-700" : "bg-white/60 text-muted-foreground/40 line-through"}`}>
-                          {g}
-                        </span>
-                      ))}
+
+                    {/* Gene phenotype heatmap */}
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                      {ALL_GENES.map((g) => {
+                        const found = foundGenes.has(g);
+                        const diplotype = found ? (buildDiplotype(variants, g) ?? "*1/*1") : null;
+                        const phenotype = diplotype ? getPhenotype(g, diplotype) : "Unknown";
+                        const heat = found ? PHENOTYPE_HEAT[phenotype] : "bg-muted/50 text-muted-foreground/30 border-border";
+                        return (
+                          <div key={g} className={`rounded-md border px-2 py-1.5 text-center ${heat} ${!found ? "opacity-40" : ""}`}>
+                            <p className="text-[10px] font-mono font-bold leading-none">{g}</p>
+                            {found && (
+                              <>
+                                <p className="text-[9px] font-mono mt-1 opacity-70">{diplotype}</p>
+                                <p className="text-[10px] font-bold mt-0.5">{PHENOTYPE_FULL[phenotype]}</p>
+                              </>
+                            )}
+                            {!found && <p className="text-[9px] mt-1">No data</p>}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -360,6 +387,20 @@ export default function AnalyzePage() {
 
             {/* Submit + status */}
             <div className="p-6 md:p-8 space-y-4 bg-muted/20">
+
+              {/* Readiness indicator */}
+              {canAnalyze && !isLoading && phase === "idle" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5"
+                >
+                  <CircleCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <p className="text-xs font-semibold text-emerald-800">Ready to generate report</p>
+                  <span className="text-[10px] text-emerald-600 ml-auto">{patientId} · {variants.length} variants · {selectedDrugs.length} drug{selectedDrugs.length > 1 ? "s" : ""}</span>
+                </motion.div>
+              )}
+
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <Button
                   onClick={handleAnalyze}
@@ -387,6 +428,20 @@ export default function AnalyzePage() {
                   </p>
                 )}
               </div>
+
+              {/* What happens next — pre-empt the phases */}
+              {!isLoading && phase === "idle" && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">1</span>
+                    Instant CPIC risk analysis
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">2</span>
+                    AI explanation generation (~3s)
+                  </span>
+                </div>
+              )}
 
               <AnimatePresence mode="wait">
                 {isLoading && (
