@@ -119,7 +119,22 @@ export default function Home() {
           <CardHeader>
             <CardTitle>Analyze Patient</CardTitle>
             <CardDescription>
-              Upload a VCF file and select drugs to generate a pharmacogenomic risk report.
+              Upload a VCF file and select drugs to generate a pharmacogenomic risk report.{" "}
+              <span className="text-xs text-muted-foreground">
+                Sample files:{" "}
+                {[
+                  { label: "All Normal",  file: "sample_all_normal.vcf"  },
+                  { label: "Codeine PM",  file: "sample_codeine_pm.vcf"  },
+                  { label: "Multi Risk",  file: "sample_multi_risk.vcf"  },
+                ].map(({ label, file }, i) => (
+                  <span key={file}>
+                    {i > 0 && " · "}
+                    <a href={`/samples/${file}`} download className="underline hover:text-foreground">
+                      {label}
+                    </a>
+                  </span>
+                ))}
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

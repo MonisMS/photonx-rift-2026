@@ -1,0 +1,8 @@
+##fileformat=VCFv4.2
+##INFO=<ID=GENE,Number=1,Type=String,Description="Gene symbol">
+##INFO=<ID=STAR,Number=1,Type=String,Description="Star allele">
+##INFO=<ID=RS,Number=1,Type=String,Description="rsID">
+##SAMPLE=<ID=PATIENT_001>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	PATIENT_001
+chr22	42522613	rs3892097	C	T	.	PASS	GENE=CYP2D6;STAR=*4;RS=rs3892097	GT	0/1
+chr22	42523943	rs5030867	A	G	.	PASS	GENE=CYP2D6;STAR=*4;RS=rs5030867	GT	0/1
