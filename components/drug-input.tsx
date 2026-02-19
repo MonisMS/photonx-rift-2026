@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { cn }     from "@/lib/utils";
 import type { SupportedDrug } from "@/lib/types";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input }  from "@/components/ui/input";
 
 // ─── Drug catalogue ───────────────────────────────────────────────────────────
 
@@ -38,15 +40,49 @@ interface DrugInputProps {
   onChange: (drugs: SupportedDrug[]) => void;
 }
 
+// ─── Name → drug resolver (case-insensitive) ────────────────────────────────
+
+const DRUG_ALIASES: Record<string, SupportedDrug> = {};
+for (const { drug } of ALL_DRUGS) {
+  DRUG_ALIASES[drug.toLowerCase()] = drug;
+}
+DRUG_ALIASES["5-fu"] = "FLUOROURACIL";
+DRUG_ALIASES["5fu"]  = "FLUOROURACIL";
+
+function resolveDrugs(text: string): SupportedDrug[] {
+  return text
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .map((name) => DRUG_ALIASES[name])
+    .filter((d): d is SupportedDrug => !!d);
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DrugInput({ selected, onChange }: DrugInputProps) {
+  const [textValue, setTextValue] = useState("");
+  const [textError, setTextError] = useState<string | null>(null);
+
   function toggle(drug: SupportedDrug) {
     onChange(
       selected.includes(drug)
         ? selected.filter((d) => d !== drug)
         : [...selected, drug]
     );
+  }
+
+  function handleTextSubmit() {
+    if (!textValue.trim()) return;
+    const resolved = resolveDrugs(textValue);
+    if (resolved.length === 0) {
+      setTextError("No recognized drugs. Try: codeine, warfarin, clopidogrel, simvastatin, azathioprine, fluorouracil");
+      return;
+    }
+    const merged = [...new Set([...selected, ...resolved])];
+    onChange(merged);
+    setTextValue("");
+    setTextError(null);
   }
 
   const allSelected = selected.length === ALL_DRUGS.length;
@@ -145,6 +181,35 @@ export function DrugInput({ selected, onChange }: DrugInputProps) {
             </motion.button>
           );
         })}
+      </div>
+
+      {/* Text input — satisfies "comma-separated text input" spec */}
+      <div className="space-y-1.5">
+        <label className="block text-xs text-muted-foreground">
+          Or type drug names (comma-separated)
+        </label>
+        <div className="flex gap-2">
+          <Input
+            value={textValue}
+            onChange={(e) => { setTextValue(e.target.value); setTextError(null); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleTextSubmit(); } }}
+            placeholder="e.g. codeine, warfarin, simvastatin"
+            className="h-9 text-sm flex-1"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 px-3 text-xs shrink-0"
+            onClick={handleTextSubmit}
+            disabled={!textValue.trim()}
+          >
+            Add
+          </Button>
+        </div>
+        {textError && (
+          <p className="text-xs text-destructive">{textError}</p>
+        )}
       </div>
     </div>
   );
