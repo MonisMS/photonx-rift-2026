@@ -254,9 +254,10 @@ export default function AnalyzePage() {
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   Sample files:
                   {[
-                    { label: "All Normal",  file: "sample_all_normal.vcf"  },
-                    { label: "Codeine PM",  file: "sample_codeine_pm.vcf"  },
-                    { label: "Multi Risk",  file: "sample_multi_risk.vcf"  },
+                    { label: "All Normal",    file: "sample_all_normal.vcf"    },
+                    { label: "Codeine PM",    file: "sample_codeine_pm.vcf"    },
+                    { label: "Codeine Toxic", file: "sample_codeine_toxic.vcf" },
+                    { label: "Multi Risk",    file: "sample_multi_risk.vcf"    },
                   ].map(({ label, file }, i) => (
                     <span key={file}>
                       {i > 0 && <span className="mx-1 opacity-40">·</span>}

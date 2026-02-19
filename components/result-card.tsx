@@ -271,6 +271,16 @@ export function ResultCard({ result, isLoadingExplain = false }: ResultCardProps
                       {llm_generated_explanation.recommendation}
                     </p>
                   </div>
+                  {llm_generated_explanation.citations && (
+                    <div className="border-t border-border pt-3">
+                      <p className="font-semibold text-foreground mb-1.5 text-xs uppercase tracking-wide">
+                        Citations
+                      </p>
+                      <p className="text-muted-foreground text-xs leading-relaxed font-mono">
+                        {llm_generated_explanation.citations}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>

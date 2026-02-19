@@ -10,9 +10,9 @@ PharmaGuard analyzes a patient's genetic data (VCF file) and predicts personaliz
 
 | | |
 |---|---|
-| **Live Demo** | `https://your-deployment.vercel.app` ← replace after deploy |
-| **Demo Video** | `https://linkedin.com/...` ← replace after recording |
-| **GitHub** | `https://github.com/your-org/photonx-rift-2026` |
+| **Live Demo** | https://photonx-rift-2026.vercel.app |
+| **Demo Video** | `https://linkedin.com/...` ← add after recording |
+| **GitHub** | `https://github.com/your-org/photonx-rift-2026` ← add your real repo URL |
 
 ---
 
@@ -44,9 +44,9 @@ POST /api/analyze  (Phase 1 — instant)
   └── lib/cpic.ts       → diplotype → phenotype → risk label + severity
   └── Returns CPICResult[] in < 200ms
 
-POST /api/explain  (Phase 2 — parallel Gemini calls)
-  └── lib/gemini.ts     → builds prompt per drug, calls Gemini in parallel
-  └── lib/ai.ts         → round-robin rotation across 4 API keys
+POST /api/explain  (Phase 2 — single batched AI call)
+  └── lib/gemini.ts     → builds ONE prompt containing all drugs, single API call
+  └── lib/ai.ts         → waterfall: Gemini (4 keys × 2 models) → OpenRouter (free) → OpenAI (paid)
   └── Returns full AnalysisResult[] with llm_generated_explanation
 ```
 
@@ -90,16 +90,20 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Environment Setup
 
-Create `.env.local` with up to 4 Gemini API keys (get them free at [aistudio.google.com](https://aistudio.google.com/apikey)):
+Copy `.env.example` to `.env.local` and fill in your keys:
 
-```
-GOOGLE_API_KEY_1=your_key_here
-GOOGLE_API_KEY_2=your_key_here   # optional
-GOOGLE_API_KEY_3=your_key_here   # optional
-GOOGLE_API_KEY_4=your_key_here   # optional
+```bash
+cp .env.example .env.local
 ```
 
-Multiple keys enable round-robin rotation to stay within free tier rate limits. Only `GOOGLE_API_KEY_1` is required.
+| Variable | Required | Description |
+|---|---|---|
+| `GOOGLE_API_KEY_1` | Yes | Primary Gemini key — free at [aistudio.google.com](https://aistudio.google.com/apikey) |
+| `GOOGLE_API_KEY_2..4` | No | Extra Gemini keys for rate-limit rotation (~30 req/day each) |
+| `OPENROUTER_API_KEY` | No | Free fallback — Llama 3.3 70B, Llama 3.1 8B, Mistral 7B via [openrouter.ai](https://openrouter.ai/keys) |
+| `OPENAI_API_KEY` | No | Paid last resort — gpt-4o-mini (~$0.0007 per 6-drug run) |
+
+The AI provider waterfall is: **Gemini (free) → OpenRouter (free) → OpenAI (paid)**. Only `GOOGLE_API_KEY_1` is required; all others extend resilience. The app works fully even if Gemini is quota-exhausted.
 
 ---
 

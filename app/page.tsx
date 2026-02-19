@@ -63,7 +63,7 @@ const TRUST_ITEMS = [
   { icon: Lock,        label: "Browser-side parsing"     },
   { icon: Zap,         label: "Instant AI analysis"      },
   { icon: ShieldCheck, label: "No data retention"        },
-];
+  ];
 
 const STEPS = [
   {

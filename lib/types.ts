@@ -74,6 +74,7 @@ export interface LLMExplanation {
   summary: string;
   mechanism: string;
   recommendation: string;
+  citations: string;
 }
 
 export interface QualityMetrics {

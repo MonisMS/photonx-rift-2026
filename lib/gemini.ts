@@ -27,7 +27,7 @@ function buildBatchPrompt(inputs: ExplainInput[]): string {
 
   // Render exactly N placeholder rows — prevents model from returning fewer objects
   const skeleton = inputs
-    .map(() => `  {"summary":"...","mechanism":"...","recommendation":"..."}`)
+    .map(() => `  {"summary":"...","mechanism":"...","recommendation":"...","citations":"..."}`)
     .join(",\n");
 
   return `You are a clinical pharmacogenomics expert. For each numbered drug below write one JSON object. Return ONLY a JSON array of exactly ${inputs.length} objects, same order, no extra text.
@@ -38,6 +38,7 @@ Fields per object:
 - summary: one sentence risk summary for a non-specialist
 - mechanism: 2-3 sentences on biological mechanism citing the rsID and diplotype
 - recommendation: specific CPIC-aligned clinical action
+- citations: one sentence referencing the specific rsID, star allele, diplotype, and CPIC guideline (e.g. "CPIC Guideline for CYP2D6 and Codeine (2022); variant rs3892097 (*4 allele); diplotype *1/*4")
 
 Return exactly this structure (${inputs.length} objects):
 [
@@ -58,6 +59,7 @@ const FALLBACK_EXPLANATION: LLMExplanation = {
   summary:        "Clinical explanation unavailable.",
   mechanism:      "Could not generate mechanism at this time.",
   recommendation: "Consult a clinical pharmacist for detailed guidance.",
+  citations:      "See CPIC guidelines at cpicpgx.org for variant-specific guidance.",
 };
 
 // ─── Batch Explainer — 1 API call for all drugs ───────────────────────────────
@@ -80,6 +82,7 @@ export async function explainAll(inputs: ExplainInput[]): Promise<LLMExplanation
       summary:        item?.summary        || FALLBACK_EXPLANATION.summary,
       mechanism:      item?.mechanism      || FALLBACK_EXPLANATION.mechanism,
       recommendation: item?.recommendation || FALLBACK_EXPLANATION.recommendation,
+      citations:      item?.citations      || FALLBACK_EXPLANATION.citations,
     }));
   } catch (err) {
     console.error("[PharmaGuard] Gemini batch call failed:", err);
