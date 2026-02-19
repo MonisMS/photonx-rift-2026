@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   FadeIn,
   FadeInSimple,
@@ -86,36 +86,50 @@ const STEPS = [
   },
 ];
 
-const FEATURES = [
+const FEATURES: {
+  icon: typeof ShieldCheck;
+  title: string;
+  body: string;
+  featured?: boolean;
+  iconHover: Record<string, number | number[]>;
+}[] = [
   {
     icon:  ShieldCheck,
     title: "Deterministic CPIC Classification",
     body:  "Risk labels are resolved through direct lookup against CPIC diplotype–phenotype–risk tables. No probabilistic model, no inference — fully auditable decision logic.",
+    featured: true,
+    iconHover: { scale: 1.2, rotate: -8 },
   },
   {
     icon:  FlaskConical,
     title: "Explainable AI Narration",
     body:  "Each classification is accompanied by an AI-generated clinical explanation citing the patient's specific rsID, diplotype, and metabolizer phenotype — grounded in CPIC evidence.",
+    featured: true,
+    iconHover: { rotate: [0, 12, -12, 6, 0] },
   },
   {
     icon:  Zap,
     title: "Parallel Multi-Drug Analysis",
     body:  "Evaluate up to ten drug–gene interactions per patient in a single session. Each drug is processed independently for progressive, low-latency result delivery.",
+    iconHover: { scale: [1, 1.3, 1], y: -2 },
   },
   {
     icon:  BarChart3,
     title: "Diplotype Confidence Scoring",
     body:  "Every classification reports genotype confidence: 95% for fully resolved diplotypes, 70% for single-allele inference, flagged explicitly when data is incomplete.",
+    iconHover: { y: [0, -3, 0] },
   },
   {
     icon:  Lock,
     title: "Client-Side Genomic Processing",
     body:  "VCF variant extraction executes entirely in the browser via the FileReader API. No genomic data is transmitted to, processed on, or retained by any server.",
+    iconHover: { scale: 1.15, rotate: 6 },
   },
   {
     icon:  Dna,
     title: "Guideline-Aligned Alternatives",
     body:  "When a drug is classified as Toxic or Ineffective, the system surfaces pharmacogenomically appropriate therapeutic alternatives consistent with CPIC guidance.",
+    iconHover: { rotate: [0, 180], scale: 1.1 },
   },
 ];
 
@@ -632,6 +646,8 @@ function TrustBar() {
 // ─── How It Works ──────────────────────────────────────────────────────────────
 
 function HowItWorksSection() {
+  const ease = [0.16, 1, 0.3, 1] as const;
+
   return (
     <section
       id="how-it-works"
@@ -640,30 +656,76 @@ function HowItWorksSection() {
     >
       <div className="mx-auto max-w-5xl px-5">
 
-        <FadeIn className="text-center mb-16 md:mb-20">
-          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80 mb-3">Methodology</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-white">
-            From VCF variant file to clinical risk report<br className="hidden sm:block" /> in three deterministic steps
-          </h2>
-          <p className="mx-auto max-w-xl text-white/60">
-            No account required. No data uploaded. Fully reproducible results.
-          </p>
-        </FadeIn>
+        {/* ── Section header — cinematic scroll reveal ────────────── */}
+        <div className="text-center mb-16 md:mb-20">
+          {/* Eyebrow — slide up */}
+          <motion.p
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, ease }}
+            className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80 mb-3"
+          >
+            Methodology
+          </motion.p>
 
-        <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Headline — masked clip reveal */}
+          <div className="overflow-hidden">
+            <motion.h2
+              initial={{ y: "100%", opacity: 0 }}
+              whileInView={{ y: "0%", opacity: 1 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.8, delay: 0.1, ease }}
+              className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-white"
+            >
+              From VCF variant file to clinical risk report<br className="hidden sm:block" /> in three deterministic steps
+            </motion.h2>
+          </div>
+
+          {/* Subtitle — fade */}
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, delay: 0.25, ease }}
+            className="mx-auto max-w-xl text-white/60"
+          >
+            No account required. No data uploaded. Fully reproducible results.
+          </motion.p>
+        </div>
+
+        {/* ── Step cards ─────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {STEPS.map((step, i) => (
-            <StaggerItem key={i}>
-              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-white/10 border border-white/15">
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 32, scale: 0.95 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.7, delay: 0.15 + i * 0.15, ease }}
+            >
+              <motion.div
+                whileHover={{
+                  y: -6,
+                  boxShadow: "0 0 0 1px oklch(0.65 0.14 170 / 0.25), 0 8px 32px oklch(0.65 0.14 170 / 0.12)",
+                }}
+                transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                className="group relative flex flex-col items-center text-center p-6 rounded-2xl bg-white/10 border border-white/15 transition-colors duration-300 hover:bg-white/[0.13]"
+              >
                 {/* Connector line */}
                 {i < STEPS.length - 1 && (
                   <div className="hidden md:block absolute top-10 left-[calc(50%+48px)] right-[-24px] h-px bg-gradient-to-r from-white/20 to-transparent" />
                 )}
 
-                {/* Icon circle */}
+                {/* Icon circle — pulse on card hover */}
                 <div className="relative mb-6">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 border border-white/15">
-                    <step.icon className="h-9 w-9 text-emerald-400" />
-                  </div>
+                  <motion.div
+                    whileHover={{ rotate: [0, -6, 6, -3, 0] }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 border border-white/15 transition-all duration-300 group-hover:bg-white/20 group-hover:border-emerald-400/30 group-hover:shadow-[0_0_20px_oklch(0.65_0.14_170/0.15)]"
+                  >
+                    <step.icon className="h-9 w-9 text-emerald-400 transition-transform duration-300 group-hover:scale-110" />
+                  </motion.div>
                   <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400 text-[10px] font-bold text-emerald-950 shadow-sm">
                     {i + 1}
                   </span>
@@ -672,19 +734,38 @@ function HowItWorksSection() {
                 <div className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80 mb-2">{step.step}</div>
                 <h3 className="text-lg font-semibold mb-3 text-white">{step.title}</h3>
                 <p className="text-sm text-white/65 leading-relaxed">{step.body}</p>
-              </div>
-            </StaggerItem>
+              </motion.div>
+            </motion.div>
           ))}
-        </StaggerContainer>
+        </div>
 
-        <FadeIn className="mt-14 text-center" delay={0.1}>
-          <Button asChild size="lg" className="gap-2 bg-white hover:bg-white/90 rounded-full shadow-card-lg" style={{ color: "var(--pg-hero)" }}>
-            <Link href="/analyze">
-              Launch Clinical Analysis
-              <ArrowRight className="h-4 w-4" />
+        {/* ── CTA ─────────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-40px" }}
+          transition={{ duration: 0.6, delay: 0.2, ease }}
+          className="mt-14 text-center"
+        >
+          <motion.div
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            className="inline-block"
+          >
+            <Link
+              href="/analyze"
+              className="group relative inline-flex items-center gap-2 rounded-full px-8 h-12 text-base font-semibold bg-white shadow-card-lg overflow-hidden"
+              style={{ color: "var(--pg-hero)" }}
+            >
+              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+              <span className="relative flex items-center gap-2">
+                Launch Clinical Analysis
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </span>
             </Link>
-          </Button>
-        </FadeIn>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );
@@ -693,6 +774,8 @@ function HowItWorksSection() {
 // ─── Features ─────────────────────────────────────────────────────────────────
 
 function FeaturesSection() {
+  const ease = [0.16, 1, 0.3, 1] as const;
+
   return (
     <section
       id="features"
@@ -701,32 +784,98 @@ function FeaturesSection() {
     >
       <div className="mx-auto max-w-5xl px-5">
 
-        <FadeIn className="text-center mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/70 mb-3">Clinical Architecture</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-white">
-            Evidence-based infrastructure for pharmacogenomic decision support
-          </h2>
-          <p className="mx-auto max-w-xl text-white/65">
+        {/* ── Section header — scroll reveal ─────────────────────── */}
+        <div className="text-center mb-16">
+          <motion.p
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, ease }}
+            className="text-xs font-semibold uppercase tracking-widest text-emerald-300/80 mb-3"
+          >
+            Clinical Architecture
+          </motion.p>
+          <div className="overflow-hidden">
+            <motion.h2
+              initial={{ y: "100%", opacity: 0 }}
+              whileInView={{ y: "0%", opacity: 1 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.8, delay: 0.1, ease }}
+              className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-white"
+            >
+              Evidence-based infrastructure for pharmacogenomic decision support
+            </motion.h2>
+          </div>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, delay: 0.25, ease }}
+            className="mx-auto max-w-xl text-white/65"
+          >
             Every component is designed to preserve clinical rigor, ensure auditability,
             and surface actionable pharmacogenomic intelligence at the point of care.
-          </p>
-        </FadeIn>
+          </motion.p>
+        </div>
 
-        <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {FEATURES.map((feat) => (
-            <StaggerItem key={feat.title}>
-              <HoverLift className="h-full">
-                <div className="h-full rounded-xl border border-white/15 bg-white/10 p-6 transition-all hover:bg-white/15">
-                  <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">
-                    <feat.icon className="h-5 w-5 text-emerald-400" />
-                  </div>
-                  <h3 className="font-semibold mb-2 text-white">{feat.title}</h3>
-                  <p className="text-sm text-white/65 leading-relaxed">{feat.body}</p>
-                </div>
-              </HoverLift>
-            </StaggerItem>
+        {/* ── Feature cards — differentiated grid ────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {FEATURES.map((feat, i) => (
+            <motion.div
+              key={feat.title}
+              initial={{ opacity: 0, y: 28, scale: 0.96 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.6, delay: 0.08 * i, ease }}
+              className="h-full"
+            >
+              <motion.div
+                whileHover={{
+                  y: -5,
+                  boxShadow: feat.featured
+                    ? "0 0 0 1px oklch(0.65 0.14 170 / 0.30), 0 12px 40px oklch(0.65 0.14 170 / 0.15)"
+                    : "0 0 0 1px oklch(1 0 0 / 0.12), 0 8px 28px oklch(0 0 0 / 0.20)",
+                }}
+                transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                className={cn(
+                  "group h-full rounded-xl p-6 transition-colors duration-300 cursor-default",
+                  feat.featured
+                    ? "bg-white/[0.13] border border-emerald-400/20 hover:bg-white/[0.17]"
+                    : "bg-white/10 border border-white/15 hover:bg-white/[0.14]"
+                )}
+              >
+                {/* Icon — animated per card */}
+                <motion.div
+                  whileHover={feat.iconHover}
+                  transition={{ duration: 0.45, ease: "easeInOut" }}
+                  className={cn(
+                    "mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300",
+                    feat.featured
+                      ? "bg-emerald-400/15 group-hover:bg-emerald-400/25 group-hover:shadow-[0_0_16px_oklch(0.65_0.14_170/0.20)]"
+                      : "bg-white/15 group-hover:bg-white/20"
+                  )}
+                >
+                  <feat.icon className={cn(
+                    "h-5 w-5 transition-all duration-300",
+                    feat.featured
+                      ? "text-emerald-400 group-hover:text-emerald-300"
+                      : "text-emerald-400/80 group-hover:text-emerald-400"
+                  )} />
+                </motion.div>
+
+                {/* Featured badge */}
+                {feat.featured && (
+                  <span className="inline-block mb-2 text-[10px] font-semibold uppercase tracking-widest text-emerald-400/70 bg-emerald-400/10 rounded-full px-2 py-0.5">
+                    Core
+                  </span>
+                )}
+
+                <h3 className="font-semibold mb-2 text-white">{feat.title}</h3>
+                <p className="text-sm text-white/65 leading-relaxed">{feat.body}</p>
+              </motion.div>
+            </motion.div>
           ))}
-        </StaggerContainer>
+        </div>
       </div>
     </section>
   );
@@ -735,6 +884,8 @@ function FeaturesSection() {
 // ─── Security ─────────────────────────────────────────────────────────────────
 
 function SecuritySection() {
+  const ease = [0.16, 1, 0.3, 1] as const;
+
   const PRINCIPLES = [
     "Deterministic CPIC table logic — no ML in risk classification",
     "VCF parsed in-browser — genomic data never transmitted",
@@ -751,56 +902,181 @@ function SecuritySection() {
       style={{ background: "var(--pg-light)" }}
     >
       <div className="mx-auto max-w-5xl px-5">
-        <div className="rounded-2xl border border-white/15 bg-white/10 overflow-hidden">
-          <div className="grid md:grid-cols-2 gap-0">
+        {/* Card container — scroll reveal */}
+        <motion.div
+          initial={{ opacity: 0, y: 32, scale: 0.97 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.8, ease }}
+          className="rounded-2xl border border-white/20 bg-white/[0.12] overflow-hidden"
+        >
+          <div className="grid md:grid-cols-2 gap-0 relative">
 
-            {/* Text column */}
-            <div className="p-8 md:p-12">
-              <FadeIn>
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 mb-6">
-                  <Lock className="h-6 w-6 text-emerald-400" />
-                </div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400/90 mb-3">Transparency &amp; Data Sovereignty</p>
-                <h2 className="text-2xl font-bold tracking-tight mb-4 text-white">
-                  Auditable architecture. Zero genomic data exposure.
-                </h2>
-                <p className="text-white/70 leading-relaxed mb-6 text-sm">
-                  Genomic data is among the most sensitive clinical information in existence.
-                  PharmaGuard is architected so that raw variant data never leaves the
-                  clinician&apos;s browser — and risk classification is deterministic, not probabilistic.
-                  Every output can be traced from variant to diplotype to phenotype to recommendation.
-                </p>
-                <p className="text-xs text-white/45 border-t border-white/15 pt-4">
-                  PharmaGuard is built for research and clinical decision support. It is not
-                  a regulated medical device. Always confirm reports with a qualified clinician.
-                </p>
-              </FadeIn>
-            </div>
+            {/* Animated divider — grows on scroll */}
+            <motion.div
+              initial={{ scaleY: 0 }}
+              whileInView={{ scaleY: 1 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.8, delay: 0.4, ease }}
+              className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px origin-top"
+              style={{ background: "linear-gradient(to bottom, transparent, oklch(0.65 0.14 170 / 0.3), transparent)" }}
+            />
 
-            {/* Principles column */}
-            <div className="bg-white/[0.06] p-8 md:p-12 border-t md:border-t-0 md:border-l border-white/15">
-              <FadeIn>
-                <p className="text-sm font-semibold mb-6 text-white/90">Core privacy principles</p>
-                <ul className="space-y-4">
-                  {PRINCIPLES.map((p, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span className="text-sm text-white/70">{p}</span>
-                    </li>
-                  ))}
-                </ul>
-              </FadeIn>
-            </div>
+            {/* Text column — slides from left */}
+            <motion.div
+              initial={{ opacity: 0, x: -24 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.7, delay: 0.15, ease }}
+              className="p-8 md:p-12"
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.5, delay: 0.25, ease }}
+                className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-400/15 mb-6"
+              >
+                <Lock className="h-6 w-6 text-emerald-400" />
+              </motion.div>
+              <p className="text-sm font-semibold uppercase tracking-widest text-emerald-400 mb-3">Transparency &amp; Data Sovereignty</p>
+              <h2 className="text-3xl font-bold tracking-tight mb-5 text-white">
+                Auditable architecture.<br className="hidden sm:block" /> Zero genomic data exposure.
+              </h2>
+              <p className="text-white/80 leading-relaxed mb-6 text-base">
+                Genomic data is among the most sensitive clinical information in existence.
+                PharmaGuard is architected so that raw variant data never leaves the
+                clinician&apos;s browser — and risk classification is deterministic, not probabilistic.
+                Every output can be traced from variant to diplotype to phenotype to recommendation.
+              </p>
+              <p className="text-sm text-white/55 border-t border-white/20 pt-4">
+                PharmaGuard is built for research and clinical decision support. It is not
+                a regulated medical device. Always confirm reports with a qualified clinician.
+              </p>
+            </motion.div>
+
+            {/* Principles column — slides from right, staggered checks */}
+            <motion.div
+              initial={{ opacity: 0, x: 24 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.7, delay: 0.3, ease }}
+              className="bg-white/[0.06] p-8 md:p-12 border-t md:border-t-0"
+            >
+              <p className="text-base font-bold mb-7 text-white">Core privacy principles</p>
+              <ul className="space-y-5">
+                {PRINCIPLES.map((p, i) => (
+                  <motion.li
+                    key={i}
+                    initial={{ opacity: 0, x: 16 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, margin: "-40px" }}
+                    transition={{ duration: 0.45, delay: 0.4 + i * 0.09, ease }}
+                    className="flex items-start gap-3.5"
+                  >
+                    <motion.div
+                      initial={{ scale: 0, rotate: -90 }}
+                      whileInView={{ scale: 1, rotate: 0 }}
+                      viewport={{ once: true, margin: "-40px" }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 15,
+                        delay: 0.45 + i * 0.09,
+                      }}
+                      className="shrink-0 mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400/25"
+                    >
+                      <CheckCircle2 className="h-[18px] w-[18px] text-emerald-400" />
+                    </motion.div>
+                    <span className="text-[15px] text-white/85 font-medium leading-snug">{p}</span>
+                  </motion.li>
+                ))}
+              </ul>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
 }
 
-// ─── Testimonials — infinite marquee ─────────────────────────────────────────
+// ─── Testimonials — infinite marquee with interactive cards ──────────────────
+
+function TestimonialCard({ t, index }: { t: typeof TESTIMONIALS[number]; index: number }) {
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: y * -8, y: x * 8 });
+  };
+
+  const handleMouseLeave = () => {
+    setTilt({ x: 0, y: 0 });
+    setIsHovered(false);
+  };
+
+  return (
+    <motion.div
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      animate={{
+        rotateX: tilt.x,
+        rotateY: tilt.y,
+        scale: isHovered ? 1.03 : 1,
+        y: isHovered ? -4 : 0,
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 22 }}
+      style={{ perspective: 800, transformStyle: "preserve-3d" }}
+      className="w-80 shrink-0 rounded-xl border border-border/50 bg-white/85 backdrop-blur-sm p-6 shadow-card hover:shadow-card-md flex flex-col cursor-default transition-[border-color,box-shadow] duration-300 hover:border-primary/20"
+    >
+      {/* Stars — staggered pop-in */}
+      <div className="flex gap-0.5 mb-4">
+        {Array.from({ length: t.rating }).map((_, j) => (
+          <motion.div
+            key={j}
+            initial={{ opacity: 0, scale: 0, rotate: -30 }}
+            whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+            viewport={{ once: true }}
+            transition={{
+              type: "spring",
+              stiffness: 500,
+              damping: 18,
+              delay: 0.3 + j * 0.08,
+            }}
+          >
+            <Star className="h-4 w-4 fill-primary text-primary" />
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Quote */}
+      <blockquote className="text-sm text-foreground/65 leading-relaxed flex-1 mb-6">
+        &ldquo;{t.quote}&rdquo;
+      </blockquote>
+
+      {/* Author */}
+      <div className="flex items-center gap-3">
+        <div className={cn(
+          "flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold shrink-0 transition-colors duration-300",
+          isHovered ? "bg-primary/15 text-primary" : "bg-primary/10 text-primary"
+        )}>
+          {t.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+        </div>
+        <div>
+          <p className="text-sm font-medium leading-none text-foreground">{t.name}</p>
+          <p className="mt-1 text-xs text-foreground/50">{t.role} · {t.org}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 function TestimonialsSection() {
+  const ease = [0.16, 1, 0.3, 1] as const;
   const marqueeItems = [...TESTIMONIALS, ...TESTIMONIALS];
 
   return (
@@ -809,21 +1085,44 @@ function TestimonialsSection() {
       style={{ background: "var(--pg-lighter)" }}
     >
       <div className="mx-auto max-w-5xl px-5">
-        <FadeIn className="text-center mb-14">
-          <p className="eyebrow mb-3">Clinical Validation</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-foreground">
-            Evaluated by pharmacogenomics practitioners
-          </h2>
-          <p className="mx-auto max-w-lg text-foreground/60">
+        {/* Section header — cinematic reveal */}
+        <div className="text-center mb-14">
+          <motion.p
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, ease }}
+            className="eyebrow mb-3"
+          >
+            Clinical Validation
+          </motion.p>
+          <div className="overflow-hidden">
+            <motion.h2
+              initial={{ y: "100%", opacity: 0 }}
+              whileInView={{ y: "0%", opacity: 1 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.8, delay: 0.1, ease }}
+              className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-foreground"
+            >
+              Evaluated by pharmacogenomics practitioners
+            </motion.h2>
+          </div>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, delay: 0.25, ease }}
+            className="mx-auto max-w-lg text-foreground/60"
+          >
             Clinical pharmacologists, pharmacists, and PGx program coordinators
             assess PharmaGuard against real-world prescribing workflows.
-          </p>
-        </FadeIn>
+          </motion.p>
+        </div>
       </div>
 
       {/* Full-width scrolling strip */}
       <div className="relative">
-        {/* Left + right edge fades — match the section background */}
+        {/* Left + right edge fades */}
         <div
           className="pointer-events-none absolute left-0 top-0 bottom-0 w-28 z-10"
           style={{ background: "linear-gradient(to right, var(--pg-lighter), transparent)" }}
@@ -840,33 +1139,7 @@ function TestimonialsSection() {
             onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.animationPlayState = "running"; }}
           >
             {marqueeItems.map((t, i) => (
-              <div
-                key={i}
-                className="w-80 shrink-0 rounded-xl border border-border/50 bg-white/80 backdrop-blur-sm p-6 shadow-card flex flex-col"
-              >
-                {/* Stars */}
-                <div className="flex gap-0.5 mb-4">
-                  {Array.from({ length: t.rating }).map((_, j) => (
-                    <Star key={j} className="h-4 w-4 fill-primary text-primary" />
-                  ))}
-                </div>
-
-                {/* Quote */}
-                <blockquote className="text-sm text-foreground/60 leading-relaxed flex-1 mb-6">
-                  &ldquo;{t.quote}&rdquo;
-                </blockquote>
-
-                {/* Author */}
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary shrink-0">
-                    {t.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium leading-none text-foreground">{t.name}</p>
-                    <p className="mt-1 text-xs text-foreground/50">{t.role} · {t.org}</p>
-                  </div>
-                </div>
-              </div>
+              <TestimonialCard key={i} t={t} index={i} />
             ))}
           </div>
         </div>
@@ -878,6 +1151,8 @@ function TestimonialsSection() {
 // ─── FAQ ───────────────────────────────────────────────────────────────────────
 
 function FAQSection() {
+  const ease = [0.16, 1, 0.3, 1] as const;
+
   return (
     <section
       id="faq"
@@ -885,23 +1160,52 @@ function FAQSection() {
       style={{ background: "var(--pg-near-white)" }}
     >
       <div className="mx-auto max-w-3xl px-5">
-        <FadeIn className="text-center mb-14">
-          <p className="eyebrow mb-3">Technical FAQ</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-foreground">
-            Frequently asked questions
-          </h2>
-          <p className="text-foreground/60">
+        {/* Section header — cinematic reveal */}
+        <div className="text-center mb-14">
+          <motion.p
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, ease }}
+            className="eyebrow mb-3"
+          >
+            Technical FAQ
+          </motion.p>
+          <div className="overflow-hidden">
+            <motion.h2
+              initial={{ y: "100%", opacity: 0 }}
+              whileInView={{ y: "0%", opacity: 1 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.8, delay: 0.1, ease }}
+              className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-foreground"
+            >
+              Frequently asked questions
+            </motion.h2>
+          </div>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6, delay: 0.25, ease }}
+            className="text-foreground/60"
+          >
             Technical and clinical context for pharmacogenomic analysis with PharmaGuard.
-          </p>
-        </FadeIn>
+          </motion.p>
+        </div>
 
-        <FadeIn>
-          <Accordion type="single" collapsible className="space-y-2">
-            {FAQS.map((faq, i) => (
+        {/* Accordion — each item staggered on scroll */}
+        <Accordion type="single" collapsible className="space-y-2.5">
+          {FAQS.map((faq, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.5, delay: 0.06 * i, ease }}
+            >
               <AccordionItem
-                key={i}
                 value={`faq-${i}`}
-                className="rounded-xl border border-border/50 bg-white/80 backdrop-blur-sm px-5 shadow-card data-[state=open]:shadow-card-md transition-shadow"
+                className="rounded-xl border border-border/50 bg-white/85 backdrop-blur-sm px-5 shadow-card data-[state=open]:shadow-card-md data-[state=open]:border-primary/15 transition-all duration-300"
               >
                 <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline text-left">
                   {faq.q}
@@ -910,9 +1214,9 @@ function FAQSection() {
                   {faq.a}
                 </AccordionContent>
               </AccordionItem>
-            ))}
-          </Accordion>
-        </FadeIn>
+            </motion.div>
+          ))}
+        </Accordion>
       </div>
     </section>
   );
