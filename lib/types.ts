@@ -17,7 +17,11 @@ export type SupportedDrug =
   | "CLOPIDOGREL"
   | "SIMVASTATIN"
   | "AZATHIOPRINE"
-  | "FLUOROURACIL";
+  | "FLUOROURACIL"
+  | "TRAMADOL"
+  | "OMEPRAZOLE"
+  | "CELECOXIB"
+  | "CAPECITABINE";
 
 export type SupportedGene =
   | "CYP2D6"

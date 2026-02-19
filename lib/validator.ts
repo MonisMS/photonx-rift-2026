@@ -8,6 +8,7 @@ const SUPPORTED_GENES = new Set<string>([
 
 const SUPPORTED_DRUGS = new Set<string>([
   "CODEINE", "WARFARIN", "CLOPIDOGREL", "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL",
+  "TRAMADOL", "OMEPRAZOLE", "CELECOXIB", "CAPECITABINE",
 ]);
 
 const STAR_ALLELE_RE = /^\*[0-9]{1,3}[A-Za-z]*(?:xN)?$/;

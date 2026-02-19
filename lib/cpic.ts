@@ -16,6 +16,10 @@ export const DRUG_GENE_MAP: Record<SupportedDrug, SupportedGene> = {
   SIMVASTATIN:  "SLCO1B1",
   AZATHIOPRINE: "TPMT",
   FLUOROURACIL: "DPYD",
+  TRAMADOL:     "CYP2D6",
+  OMEPRAZOLE:   "CYP2C19",
+  CELECOXIB:    "CYP2C9",
+  CAPECITABINE: "DPYD",
 };
 
 // ─── Diplotype → Phenotype Tables ────────────────────────────────────────────
@@ -47,7 +51,11 @@ const CYP2C9_PHENOTYPE: Record<string, Phenotype> = {
 
 const SLCO1B1_PHENOTYPE: Record<string, Phenotype> = {
   "*1a/*1a": "NM", "*1a/*1b": "NM", "*1b/*1b": "NM",
+  // *1 (generic normal) mapped to NM when paired with *1a or *1b
+  "*1/*1a":  "NM", "*1/*1b":  "NM", "*1/*1":   "NM",
   "*1a/*5":  "IM", "*1b/*5":  "IM", "*1a/*15": "IM", "*1b/*15": "IM",
+  // *1 (generic normal) paired with risk alleles
+  "*1/*5":   "IM", "*1/*15":  "IM",
   "*5/*5":   "PM", "*15/*15": "PM", "*5/*15":  "PM",
 };
 
@@ -115,6 +123,29 @@ const RISK_TABLES: Record<SupportedDrug, RiskTable> = {
     PM:  { risk_label: "Toxic",          severity: "critical", action: "DPYD Poor Metabolizer: severe/fatal fluorouracil toxicity likely. AVOID fluorouracil and capecitabine.", alternatives: ["Alternative chemotherapy regimen — consult oncologist"] },
     IM:  { risk_label: "Adjust Dosage",  severity: "high",     action: "Reduce starting dose by 25-50%. Monitor for toxicity at each cycle." },
     NM:  { risk_label: "Safe",           severity: "none",     action: "Standard fluorouracil dosing is appropriate." },
+  },
+  TRAMADOL: {
+    PM:  { risk_label: "Ineffective",    severity: "low",      action: "CYP2D6 Poor Metabolizer cannot convert tramadol to active metabolite O-desmethyltramadol. Select alternative analgesic.", alternatives: ["Morphine", "Oxycodone"] },
+    IM:  { risk_label: "Adjust Dosage",  severity: "moderate", action: "Reduced tramadol activation. Monitor for reduced efficacy and consider dose adjustment." },
+    NM:  { risk_label: "Safe",           severity: "none",     action: "Standard tramadol dosing is appropriate." },
+    URM: { risk_label: "Toxic",          severity: "high",     action: "Ultrarapid conversion to active metabolite — risk of respiratory depression and seizures. AVOID tramadol.", alternatives: ["NSAIDs", "Non-opioid analgesics"] },
+  },
+  OMEPRAZOLE: {
+    PM:  { risk_label: "Adjust Dosage",  severity: "low",      action: "CYP2C19 PM — increased omeprazole exposure. Consider reducing dose by 50% for chronic use." },
+    IM:  { risk_label: "Safe",           severity: "none",     action: "Standard omeprazole dosing is appropriate." },
+    NM:  { risk_label: "Safe",           severity: "none",     action: "Standard omeprazole dosing is appropriate." },
+    RM:  { risk_label: "Adjust Dosage",  severity: "moderate", action: "Rapid omeprazole metabolism may reduce efficacy. Consider dose increase or alternative PPI.", alternatives: ["Rabeprazole", "Esomeprazole"] },
+    URM: { risk_label: "Ineffective",    severity: "moderate", action: "Ultrarapid CYP2C19 metabolism — standard dose likely insufficient. Switch to rabeprazole or use higher dose.", alternatives: ["Rabeprazole", "Esomeprazole"] },
+  },
+  CELECOXIB: {
+    PM:  { risk_label: "Adjust Dosage",  severity: "high",     action: "CYP2C9 Poor Metabolizer: celecoxib accumulates. Reduce starting dose by 50%. Monitor for GI and cardiovascular adverse effects." },
+    IM:  { risk_label: "Adjust Dosage",  severity: "moderate", action: "Slower celecoxib clearance. Start at lowest recommended dose and monitor for adverse effects." },
+    NM:  { risk_label: "Safe",           severity: "none",     action: "Standard celecoxib dosing is appropriate." },
+  },
+  CAPECITABINE: {
+    PM:  { risk_label: "Toxic",          severity: "critical", action: "DPYD Poor Metabolizer: severe/fatal capecitabine toxicity likely. AVOID capecitabine.", alternatives: ["Alternative chemotherapy regimen — consult oncologist"] },
+    IM:  { risk_label: "Adjust Dosage",  severity: "high",     action: "Reduce capecitabine starting dose by 25-50%. Monitor for toxicity at each cycle." },
+    NM:  { risk_label: "Safe",           severity: "none",     action: "Standard capecitabine dosing is appropriate." },
   },
 };
 

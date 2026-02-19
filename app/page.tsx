@@ -51,7 +51,7 @@ const NAV_LINKS = [
 ];
 
 const STATS = [
-  { value: "6",      label: "Drug–gene pairs"   },
+  { value: "10",     label: "Drug–gene pairs"   },
   { value: "50+",    label: "Variant mappings"  },
   { value: "<5 sec", label: "Time to report"    },
   { value: "CPIC",   label: "Evidence standard" },
@@ -76,7 +76,7 @@ const STEPS = [
     icon: Pill,
     step: "02",
     title: "Select Drugs to Evaluate",
-    body:  "Choose from six clinically validated drug–gene pairs. Batch analysis means one upload delivers one complete multi-drug report, not six separate lookups.",
+    body:  "Choose from ten clinically validated drug–gene pairs across pain, cardiology, GI, immunology, and oncology. One upload delivers one complete multi-drug report.",
   },
   {
     icon: Activity,
@@ -100,7 +100,7 @@ const FEATURES = [
   {
     icon:  Zap,
     title: "Batch Drug Analysis",
-    body:  "Analyze all six drugs against a patient genome in a single upload. One report per patient visit, not six round trips.",
+    body:  "Analyze all ten drugs against a patient genome in a single upload. One report per patient visit, one batched AI call.",
   },
   {
     icon:  BarChart3,
@@ -183,7 +183,7 @@ const FAQS = [
   },
   {
     q: "Which drugs and genes are currently supported?",
-    a: "PharmaGuard currently covers six clinically significant drug–gene pairs: Codeine (CYP2D6), Warfarin (CYP2C9), Clopidogrel (CYP2C19), Simvastatin (SLCO1B1), Azathioprine (TPMT), and Fluorouracil (DPYD). These cover the most clinically actionable CPIC Tier 1A recommendations.",
+    a: "PharmaGuard covers ten drug–gene pairs across six genes: Codeine and Tramadol (CYP2D6), Warfarin and Celecoxib (CYP2C9), Clopidogrel and Omeprazole (CYP2C19), Simvastatin (SLCO1B1), Azathioprine (TPMT), and Fluorouracil and Capecitabine (DPYD). These cover the most clinically actionable CPIC Tier 1A recommendations.",
   },
   {
     q: "Is PharmaGuard a diagnostic tool?",

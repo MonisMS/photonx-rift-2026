@@ -17,11 +17,15 @@ const ALL_DRUGS: {
   category:    string;
 }[] = [
   { drug: "CODEINE",       gene: "CYP2D6",  description: "Opioid analgesic",       category: "Pain" },
+  { drug: "TRAMADOL",      gene: "CYP2D6",  description: "Opioid analgesic",       category: "Pain" },
   { drug: "WARFARIN",      gene: "CYP2C9",  description: "Anticoagulant",           category: "Cardio" },
   { drug: "CLOPIDOGREL",   gene: "CYP2C19", description: "Antiplatelet agent",      category: "Cardio" },
+  { drug: "OMEPRAZOLE",    gene: "CYP2C19", description: "Proton pump inhibitor",   category: "GI" },
   { drug: "SIMVASTATIN",   gene: "SLCO1B1", description: "Statin / cholesterol",    category: "Cardio" },
+  { drug: "CELECOXIB",     gene: "CYP2C9",  description: "NSAID / anti-inflammatory", category: "Pain" },
   { drug: "AZATHIOPRINE",  gene: "TPMT",    description: "Immunosuppressant",       category: "Immuno" },
   { drug: "FLUOROURACIL",  gene: "DPYD",    description: "Chemotherapy agent",      category: "Oncology" },
+  { drug: "CAPECITABINE",  gene: "DPYD",    description: "Oral chemotherapy agent", category: "Oncology" },
 ];
 
 // ─── Category badge colour ────────────────────────────────────────────────────
@@ -29,6 +33,7 @@ const ALL_DRUGS: {
 const CATEGORY_COLORS: Record<string, string> = {
   Pain:     "bg-orange-100 text-orange-700",
   Cardio:   "bg-rose-100   text-rose-700",
+  GI:       "bg-teal-100   text-teal-700",
   Immuno:   "bg-violet-100 text-violet-700",
   Oncology: "bg-sky-100    text-sky-700",
 };
@@ -46,8 +51,15 @@ const DRUG_ALIASES: Record<string, SupportedDrug> = {};
 for (const { drug } of ALL_DRUGS) {
   DRUG_ALIASES[drug.toLowerCase()] = drug;
 }
-DRUG_ALIASES["5-fu"] = "FLUOROURACIL";
-DRUG_ALIASES["5fu"]  = "FLUOROURACIL";
+DRUG_ALIASES["5-fu"]       = "FLUOROURACIL";
+DRUG_ALIASES["5fu"]        = "FLUOROURACIL";
+DRUG_ALIASES["xeloda"]     = "CAPECITABINE";
+DRUG_ALIASES["celebrex"]   = "CELECOXIB";
+DRUG_ALIASES["prilosec"]   = "OMEPRAZOLE";
+DRUG_ALIASES["losec"]      = "OMEPRAZOLE";
+DRUG_ALIASES["ultram"]     = "TRAMADOL";
+DRUG_ALIASES["plavix"]     = "CLOPIDOGREL";
+DRUG_ALIASES["coumadin"]   = "WARFARIN";
 
 function resolveDrugs(text: string): SupportedDrug[] {
   return text
