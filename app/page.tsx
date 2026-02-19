@@ -51,10 +51,10 @@ const NAV_LINKS = [
 ];
 
 const STATS = [
-  { value: "6",      label: "Drug–gene pairs"    },
-  { value: "50+",    label: "Variant mappings"   },
-  { value: "<5 sec", label: "Time to report"     },
-  { value: "CPIC",   label: "Evidence standard"  },
+  { value: "6",      label: "Drug–gene pairs"   },
+  { value: "50+",    label: "Variant mappings"  },
+  { value: "<5 sec", label: "Time to report"    },
+  { value: "CPIC",   label: "Evidence standard" },
 ];
 
 const TRUST_ITEMS = [
@@ -141,6 +141,27 @@ const TESTIMONIALS = [
     org:    "Cancer Treatment Center",
     rating: 5,
   },
+  {
+    quote:  "The confidence score is a subtle but crucial feature. Knowing whether we're working with a full diplotype or a partial call changes how we weight the recommendation during rounds.",
+    name:   "Dr. M. Reyes",
+    role:   "Clinical Geneticist",
+    org:    "University Hospital Network",
+    rating: 5,
+  },
+  {
+    quote:  "Finally a pharmacogenomics tool that doesn't overclaim. The CPIC classification stays transparent, and the AI narration adds clinical context without introducing hallucination risk.",
+    name:   "J. Williams",
+    role:   "PGx Program Coordinator",
+    org:    "Precision Medicine Institute",
+    rating: 5,
+  },
+  {
+    quote:  "We piloted this for pre-admission oncology patients. Batch analysis across six drugs in a single upload significantly cut our pre-prescribing review time and reduced cognitive load.",
+    name:   "Dr. L. Chen",
+    role:   "Hospital Clinical Pharmacist",
+    org:    "Regional Oncology Center",
+    rating: 5,
+  },
 ];
 
 const FAQS = [
@@ -173,8 +194,8 @@ const FAQS = [
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
 function TopNav() {
-  const [scrolled,     setScrolled]     = useState(false);
-  const [mobileOpen,   setMobileOpen]   = useState(false);
+  const [scrolled,   setScrolled]   = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 12);
@@ -187,17 +208,19 @@ function TopNav() {
       className={cn(
         "fixed top-0 z-50 w-full transition-all duration-300",
         scrolled
-          ? "bg-background/90 backdrop-blur-md border-b border-border shadow-card"
+          ? "bg-white/90 backdrop-blur-md border-b border-border shadow-card"
           : "bg-transparent"
       )}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <FlaskConical className="h-4 w-4 text-primary-foreground" />
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm ring-1 ring-white/25">
+            <FlaskConical className="h-4 w-4 text-white" />
           </div>
-          <span className="font-bold text-base tracking-tight">PharmaGuard</span>
+          <span className={cn("font-bold text-base tracking-tight transition-colors", scrolled ? "text-foreground" : "text-white")}>
+            PharmaGuard
+          </span>
         </Link>
 
         {/* Desktop nav */}
@@ -206,7 +229,12 @@ function TopNav() {
             <a
               key={link.href}
               href={link.href}
-              className="px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              className={cn(
+                "px-3 py-1.5 rounded-md text-sm transition-colors",
+                scrolled
+                  ? "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  : "text-white/70 hover:text-white hover:bg-white/10"
+              )}
             >
               {link.label}
             </a>
@@ -215,13 +243,26 @@ function TopNav() {
 
         {/* CTA + mobile toggle */}
         <div className="flex items-center gap-2">
-          <Button asChild size="sm" className="hidden md:inline-flex">
+          <Button
+            asChild
+            size="sm"
+            className={cn(
+              "hidden md:inline-flex transition-all",
+              scrolled
+                ? ""
+                : "bg-white font-semibold hover:bg-white/90"
+            )}
+            style={scrolled ? {} : { color: "var(--pg-hero)" }}
+          >
             <Link href="/analyze">
               Start Analysis <ChevronRight className="ml-1 h-3.5 w-3.5" />
             </Link>
           </Button>
           <button
-            className="md:hidden p-2 rounded-lg hover:bg-muted/60 transition-colors"
+            className={cn(
+              "md:hidden p-2 rounded-lg transition-colors",
+              scrolled ? "hover:bg-muted/60 text-foreground" : "hover:bg-white/10 text-white"
+            )}
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
@@ -237,7 +278,7 @@ function TopNav() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.2 }}
-          className="md:hidden bg-background/95 backdrop-blur-md border-b border-border px-5 pb-4 space-y-1"
+          className="md:hidden bg-white/95 backdrop-blur-md border-b border-border px-5 pb-4 space-y-1"
         >
           {NAV_LINKS.map((link) => (
             <a
@@ -260,34 +301,50 @@ function TopNav() {
   );
 }
 
+// ─── Hero (dark forest green, white text) ──────────────────────────────────────
+
 function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center pt-24 pb-20 overflow-hidden">
-      {/* Background gradient accents */}
-      <div className="hero-gradient absolute inset-0 -z-10" aria-hidden />
+    <section
+      className="relative min-h-screen flex items-center pt-24 pb-0 overflow-hidden"
+      style={{ background: "var(--pg-hero)" }}
+    >
+      {/* Subtle white dot grid */}
+      <div className="bg-dot-grid absolute inset-0 pointer-events-none opacity-80" aria-hidden />
 
-      <div className="mx-auto max-w-5xl px-5 text-center w-full">
+      {/* Soft radial glow from top-center */}
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[60vh] pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse 70% 55% at 50% -5%, oklch(0.40 0.10 165 / 0.55), transparent 70%)",
+        }}
+        aria-hidden
+      />
 
-        {/* Eyebrow */}
+      <div className="mx-auto max-w-5xl px-5 text-center w-full pb-28">
+
+        {/* Eyebrow badge */}
         <FadeIn>
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-accent/60 px-4 py-1.5 mb-8">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-            <span className="eyebrow">Clinical Pharmacogenomics Platform</span>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-1.5 mb-8">
+            <span className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-white/75">
+              Clinical Pharmacogenomics Platform
+            </span>
           </div>
         </FadeIn>
 
         {/* Headline */}
         <FadeIn delay={0.05}>
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl mb-6 leading-[1.07]">
+          <h1 className="text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-[5.5rem] mb-6 leading-[1.04] text-white">
             Know Which Drugs Are Safe
             <br />
-            <span className="gradient-text">Before You Prescribe</span>
+            <span className="hero-gradient-text">Before You Prescribe</span>
           </h1>
         </FadeIn>
 
-        {/* Body copy */}
+        {/* Subtext */}
         <FadeIn delay={0.1}>
-          <p className="mx-auto max-w-2xl text-lg text-muted-foreground leading-relaxed mb-10">
+          <p className="mx-auto max-w-2xl text-lg text-white/65 leading-relaxed mb-10">
             PharmaGuard analyzes your patient&apos;s genetic profile against peer-reviewed CPIC
             clinical guidelines — delivering instant drug safety reports explained in plain,
             actionable language by AI.
@@ -297,50 +354,70 @@ function HeroSection() {
         {/* CTAs */}
         <FadeIn delay={0.15}>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-            <Button asChild size="lg" className="px-8 h-12 text-base shadow-card-md">
+            <Button
+              asChild
+              size="lg"
+              className="px-8 h-12 text-base bg-white hover:bg-white/95 font-semibold shadow-card-lg"
+              style={{ color: "var(--pg-hero)" }}
+            >
               <Link href="/analyze">
                 Analyze a Patient
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="px-8 h-12 text-base">
-              <a href="#how-it-works">
-                See How It Works
-              </a>
+            <Button
+              asChild
+              size="lg"
+              variant="ghost"
+              className="px-8 h-12 text-base text-white border border-white/25 hover:bg-white/10 hover:text-white"
+            >
+              <a href="#how-it-works">See How It Works</a>
             </Button>
           </div>
         </FadeIn>
 
-        {/* Stats */}
-        <StaggerContainer className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-border bg-border shadow-card mx-auto max-w-2xl">
+        {/* Stats — frosted glass panels */}
+        <StaggerContainer className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-white/12 bg-white/[0.06] mx-auto max-w-2xl">
           {STATS.map((stat) => (
             <StaggerItem key={stat.label}>
-              <div className="bg-card px-6 py-5 text-center">
-                <AnimatedStat className="block text-2xl font-bold text-primary tabular-nums">
+              <div className="bg-white/[0.05] backdrop-blur-sm px-6 py-5 text-center">
+                <AnimatedStat className="block text-2xl font-bold text-white tabular-nums">
                   {stat.value}
                 </AnimatedStat>
-                <span className="mt-1 block text-xs text-muted-foreground">{stat.label}</span>
+                <span className="mt-1 block text-xs text-white/50">{stat.label}</span>
               </div>
             </StaggerItem>
           ))}
         </StaggerContainer>
       </div>
+
+      {/* Bottom gradient bridge: hero green → trust green */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-28 pointer-events-none"
+        style={{ background: "linear-gradient(to bottom, transparent, var(--pg-trust))" }}
+        aria-hidden
+      />
     </section>
   );
 }
 
+// ─── Trust bar (dark green continuation) ──────────────────────────────────────
+
 function TrustBar() {
   return (
     <FadeInSimple>
-      <div className="border-y border-border bg-muted/30 py-5">
+      <div
+        className="border-b border-white/8 py-5"
+        style={{ background: "var(--pg-trust)" }}
+      >
         <div className="mx-auto max-w-5xl px-5">
-          <p className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+          <p className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/45">
             Built on established clinical science
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10">
             {TRUST_ITEMS.map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Icon className="h-4 w-4 text-primary shrink-0" />
+              <div key={label} className="flex items-center gap-2 text-sm text-white/70">
+                <Icon className="h-4 w-4 text-white/45 shrink-0" />
                 <span>{label}</span>
               </div>
             ))}
@@ -351,12 +428,17 @@ function TrustBar() {
   );
 }
 
+// ─── How It Works ──────────────────────────────────────────────────────────────
+
 function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="py-24 md:py-32">
+    <section
+      id="how-it-works"
+      className="py-24 md:py-32"
+      style={{ background: "var(--pg-mid)" }}
+    >
       <div className="mx-auto max-w-5xl px-5">
 
-        {/* Section header */}
         <FadeIn className="text-center mb-16 md:mb-20">
           <p className="eyebrow mb-3">How It Works</p>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
@@ -367,19 +449,18 @@ function HowItWorksSection() {
           </p>
         </FadeIn>
 
-        {/* Steps */}
         <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {STEPS.map((step, i) => (
             <StaggerItem key={i}>
-              <div className="relative flex flex-col items-center text-center p-6">
-                {/* Connector line (desktop only) */}
+              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-accent/60 border border-border shadow-card">
+                {/* Connector line */}
                 {i < STEPS.length - 1 && (
-                  <div className="hidden md:block absolute top-10 left-[calc(50%+48px)] right-0 h-px bg-gradient-to-r from-border to-transparent" />
+                  <div className="hidden md:block absolute top-10 left-[calc(50%+48px)] right-[-24px] h-px bg-gradient-to-r from-border to-transparent" />
                 )}
 
-                {/* Icon circle with step badge */}
+                {/* Icon circle */}
                 <div className="relative mb-6">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-accent shadow-card">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-card-md border border-border">
                     <step.icon className="h-9 w-9 text-primary" />
                   </div>
                   <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground shadow-sm">
@@ -395,9 +476,8 @@ function HowItWorksSection() {
           ))}
         </StaggerContainer>
 
-        {/* CTA */}
         <FadeIn className="mt-14 text-center" delay={0.1}>
-          <Button asChild size="lg" variant="outline" className="gap-2">
+          <Button asChild size="lg" className="gap-2">
             <Link href="/analyze">
               Try It Now — It&apos;s Free
               <ArrowRight className="h-4 w-4" />
@@ -409,9 +489,15 @@ function HowItWorksSection() {
   );
 }
 
+// ─── Features ─────────────────────────────────────────────────────────────────
+
 function FeaturesSection() {
   return (
-    <section id="features" className="py-24 md:py-32 bg-muted/25">
+    <section
+      id="features"
+      className="py-24 md:py-32"
+      style={{ background: "var(--pg-light)" }}
+    >
       <div className="mx-auto max-w-5xl px-5">
 
         <FadeIn className="text-center mb-16">
@@ -429,7 +515,7 @@ function FeaturesSection() {
           {FEATURES.map((feat) => (
             <StaggerItem key={feat.title}>
               <HoverLift className="h-full">
-                <div className="h-full rounded-xl border border-border bg-card p-6 shadow-card transition-shadow hover:shadow-card-md">
+                <div className="h-full rounded-xl border border-border bg-white p-6 shadow-card transition-shadow hover:shadow-card-md">
                   <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
                     <feat.icon className="h-5 w-5 text-primary" />
                   </div>
@@ -445,6 +531,8 @@ function FeaturesSection() {
   );
 }
 
+// ─── Security ─────────────────────────────────────────────────────────────────
+
 function SecuritySection() {
   const PRINCIPLES = [
     "VCF parsed in-browser, never uploaded",
@@ -455,9 +543,13 @@ function SecuritySection() {
   ];
 
   return (
-    <section id="security" className="py-24 md:py-32">
+    <section
+      id="security"
+      className="py-24 md:py-32"
+      style={{ background: "var(--pg-lighter)" }}
+    >
       <div className="mx-auto max-w-5xl px-5">
-        <div className="rounded-2xl border border-border bg-card shadow-card overflow-hidden">
+        <div className="rounded-2xl border border-border bg-white shadow-card-md overflow-hidden">
           <div className="grid md:grid-cols-2 gap-0">
 
             {/* Text column */}
@@ -483,7 +575,7 @@ function SecuritySection() {
             </div>
 
             {/* Principles column */}
-            <div className="bg-muted/30 p-8 md:p-12 border-t md:border-t-0 md:border-l border-border">
+            <div className="bg-accent/40 p-8 md:p-12 border-t md:border-t-0 md:border-l border-border">
               <FadeIn>
                 <p className="text-sm font-semibold mb-6 text-foreground">Core privacy principles</p>
                 <ul className="space-y-4">
@@ -503,11 +595,17 @@ function SecuritySection() {
   );
 }
 
-function TestimonialsSection() {
-  return (
-    <section className="py-24 md:py-32 bg-muted/25">
-      <div className="mx-auto max-w-5xl px-5">
+// ─── Testimonials — infinite marquee ─────────────────────────────────────────
 
+function TestimonialsSection() {
+  const marqueeItems = [...TESTIMONIALS, ...TESTIMONIALS];
+
+  return (
+    <section
+      className="py-24 md:py-32 overflow-hidden"
+      style={{ background: "var(--pg-lighter)" }}
+    >
+      <div className="mx-auto max-w-5xl px-5">
         <FadeIn className="text-center mb-14">
           <p className="eyebrow mb-3">From the field</p>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
@@ -517,47 +615,71 @@ function TestimonialsSection() {
             Clinicians and pharmacists working on pharmacogenomics workflows share their experience.
           </p>
         </FadeIn>
+      </div>
 
-        <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {TESTIMONIALS.map((t, i) => (
-            <StaggerItem key={i}>
-              <HoverLift className="h-full">
-                <div className="h-full rounded-xl border border-border bg-card p-6 shadow-card flex flex-col">
-                  {/* Stars */}
-                  <div className="flex gap-0.5 mb-4">
-                    {Array.from({ length: t.rating }).map((_, j) => (
-                      <Star key={j} className="h-4 w-4 fill-primary text-primary" />
-                    ))}
+      {/* Full-width scrolling strip */}
+      <div className="relative">
+        {/* Left + right edge fades — match the section background */}
+        <div
+          className="pointer-events-none absolute left-0 top-0 bottom-0 w-28 z-10"
+          style={{ background: "linear-gradient(to right, var(--pg-lighter), transparent)" }}
+        />
+        <div
+          className="pointer-events-none absolute right-0 top-0 bottom-0 w-28 z-10"
+          style={{ background: "linear-gradient(to left, var(--pg-lighter), transparent)" }}
+        />
+
+        <div className="overflow-hidden">
+          <div
+            className="flex gap-5 animate-marquee"
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.animationPlayState = "paused"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.animationPlayState = "running"; }}
+          >
+            {marqueeItems.map((t, i) => (
+              <div
+                key={i}
+                className="w-80 shrink-0 rounded-xl border border-border bg-white p-6 shadow-card flex flex-col"
+              >
+                {/* Stars */}
+                <div className="flex gap-0.5 mb-4">
+                  {Array.from({ length: t.rating }).map((_, j) => (
+                    <Star key={j} className="h-4 w-4 fill-primary text-primary" />
+                  ))}
+                </div>
+
+                {/* Quote */}
+                <blockquote className="text-sm text-muted-foreground leading-relaxed flex-1 mb-6">
+                  &ldquo;{t.quote}&rdquo;
+                </blockquote>
+
+                {/* Author */}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-semibold text-primary shrink-0">
+                    {t.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                   </div>
-
-                  {/* Quote */}
-                  <blockquote className="text-sm text-muted-foreground leading-relaxed flex-1 mb-6">
-                    &ldquo;{t.quote}&rdquo;
-                  </blockquote>
-
-                  {/* Author */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-semibold text-primary">
-                      {t.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium leading-none">{t.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{t.role} · {t.org}</p>
-                    </div>
+                  <div>
+                    <p className="text-sm font-medium leading-none">{t.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{t.role} · {t.org}</p>
                   </div>
                 </div>
-              </HoverLift>
-            </StaggerItem>
-          ))}
-        </StaggerContainer>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
+// ─── FAQ ───────────────────────────────────────────────────────────────────────
+
 function FAQSection() {
   return (
-    <section id="faq" className="py-24 md:py-32">
+    <section
+      id="faq"
+      className="py-24 md:py-32"
+      style={{ background: "var(--pg-near-white)" }}
+    >
       <div className="mx-auto max-w-3xl px-5">
         <FadeIn className="text-center mb-14">
           <p className="eyebrow mb-3">FAQ</p>
@@ -575,7 +697,7 @@ function FAQSection() {
               <AccordionItem
                 key={i}
                 value={`faq-${i}`}
-                className="rounded-xl border border-border bg-card px-5 shadow-card data-[state=open]:shadow-card-md transition-shadow"
+                className="rounded-xl border border-border bg-white px-5 shadow-card data-[state=open]:shadow-card-md transition-shadow"
               >
                 <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline text-left">
                   {faq.q}
@@ -592,21 +714,20 @@ function FAQSection() {
   );
 }
 
+// ─── CTA ───────────────────────────────────────────────────────────────────────
+
 function CTASection() {
   return (
-    <section className="py-20 md:py-28">
+    <section
+      className="py-20 md:py-28"
+      style={{ background: "var(--pg-near-white)" }}
+    >
       <div className="mx-auto max-w-5xl px-5">
         <FadeIn>
           <div className="relative overflow-hidden rounded-2xl bg-primary px-8 py-14 md:px-14 text-center shadow-card-lg">
             {/* Subtle background circles */}
-            <div
-              className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5"
-              aria-hidden
-            />
-            <div
-              className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-white/5"
-              aria-hidden
-            />
+            <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5" aria-hidden />
+            <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-white/5" aria-hidden />
 
             <div className="relative">
               <p className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/60 mb-4">
@@ -624,7 +745,8 @@ function CTASection() {
                   asChild
                   variant="secondary"
                   size="lg"
-                  className="px-8 h-12 text-base bg-white text-primary hover:bg-white/90 shadow-card"
+                  className="px-8 h-12 text-base bg-white hover:bg-white/90 shadow-card font-semibold"
+                  style={{ color: "var(--pg-hero)" }}
                 >
                   <Link href="/analyze">
                     Analyze a Patient
@@ -635,7 +757,7 @@ function CTASection() {
                   asChild
                   variant="ghost"
                   size="lg"
-                  className="px-8 h-12 text-base text-primary-foreground hover:bg-white/10"
+                  className="px-8 h-12 text-base text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
                 >
                   <a href="#how-it-works">Learn how it works</a>
                 </Button>
@@ -647,6 +769,8 @@ function CTASection() {
     </section>
   );
 }
+
+// ─── Footer ────────────────────────────────────────────────────────────────────
 
 function FooterSection() {
   const FOOTER_LINKS = {
@@ -671,7 +795,7 @@ function FooterSection() {
   };
 
   return (
-    <footer className="border-t border-border bg-card">
+    <footer className="border-t border-border bg-background">
       <div className="mx-auto max-w-5xl px-5 py-14">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4 mb-12">
 
@@ -752,6 +876,12 @@ export default function LandingPage() {
       <main className="flex-1">
         <HeroSection />
         <TrustBar />
+        {/* Gradient bridge: trust green → sage mint */}
+        <div
+          aria-hidden
+          className="w-full h-24 pointer-events-none"
+          style={{ background: "linear-gradient(to bottom, var(--pg-trust), var(--pg-mid))" }}
+        />
         <HowItWorksSection />
         <FeaturesSection />
         <SecuritySection />

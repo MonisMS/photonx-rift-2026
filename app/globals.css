@@ -97,6 +97,14 @@
   --sidebar-accent-foreground: oklch(0.40  0.115 184.5);
   --sidebar-border:            oklch(0.91  0.006 247);
   --sidebar-ring:              oklch(0.52  0.14  184.5);
+
+  /* ── Page gradient steps (landing page, dark→light top→bottom) ─────────── */
+  --pg-hero:       oklch(0.20 0.085 165);
+  --pg-trust:      oklch(0.24 0.082 165);
+  --pg-mid:        oklch(0.88 0.024 165);
+  --pg-light:      oklch(0.92 0.015 165);
+  --pg-lighter:    oklch(0.95 0.009 165);
+  --pg-near-white: oklch(0.97 0.005 165);
 }
 
 /* ─── Dark Mode ─────────────────────────────────────────────────────────────── */
@@ -191,7 +199,7 @@
     @apply text-xs font-semibold uppercase tracking-widest text-primary;
   }
 
-  /* Teal gradient text */
+  /* Teal gradient text (light sections) */
   .gradient-text {
     background: linear-gradient(
       135deg,
@@ -203,11 +211,53 @@
     background-clip: text;
   }
 
+  /* Bright teal-cyan gradient text (hero — visible on dark green bg) */
+  .hero-gradient-text {
+    background: linear-gradient(
+      135deg,
+      oklch(0.80 0.16 184.5),
+      oklch(0.73 0.13 200)
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   /* Focus ring consistent with brand */
   .focus-brand:focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2;
   }
+
+  /* ── Infinite horizontal marquee ─────────────────────────────────────────── */
+  .animate-marquee {
+    animation: marquee 45s linear infinite;
+    will-change: transform;
+  }
+
+  /* ── Molecular dot-grid overlay (white dots, for dark hero bg) ─────────── */
+  .bg-dot-grid {
+    background-image: radial-gradient(
+      circle,
+      oklch(1 0 0 / 0.06) 1px,
+      transparent 1px
+    );
+    background-size: 28px 28px;
+  }
+
+  /* ── Neon glow border for dark-mode cards ────────────────────────────────── */
+  .border-glow {
+    box-shadow:
+      0 0 0 1px oklch(0.65 0.14 184.5 / 0.18),
+      0 0 32px oklch(0.65 0.14 184.5 / 0.07);
+  }
 }
+
+/* ─── Marquee keyframe ──────────────────────────────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
 
 /* ─── Reduced Motion ────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {

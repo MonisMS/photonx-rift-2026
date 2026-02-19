@@ -34,6 +34,7 @@ Package manager is **pnpm**. Never use npm or yarn.
 | Framework | Next.js (App Router) | 16.1.6 |
 | UI library | React | 19.2.3 |
 | Styling | Tailwind CSS v4 + shadcn/ui (new-york) | v4 |
+| Animations | framer-motion | 12.x |
 | AI SDK | Vercel AI SDK (`ai` + `@ai-sdk/google` + `@ai-sdk/openai`) | ai 6.x |
 | Primary AI | Gemini `gemini-2.0-flash` → `gemini-2.0-flash-lite` (free) | — |
 | Fallback AI | OpenAI `gpt-4o-mini` (paid, last resort) | — |
@@ -48,7 +49,7 @@ Package manager is **pnpm**. Never use npm or yarn.
 
 | Route | File | Purpose |
 |---|---|---|
-| `GET /` | `app/page.tsx` | Landing page — "Get Started" links to `/analyze` |
+| `GET /` | `app/page.tsx` | Full landing page — hero, features, how-it-works, FAQ, footer |
 | `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state and API calls |
 | `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates input + CPIC lookup → returns `CPICResult[]` instantly, zero AI calls |
 | `POST /api/explain` | `app/api/explain/route.ts` | Phase 2: takes `CPICResult[]`, makes **1 batched AI call** → returns `AnalysisResult[]` |
@@ -97,9 +98,10 @@ Server (Phase 2 — /api/explain):
 | `lib/utils.ts` | `cn()` helper (clsx + tailwind-merge) |
 | `app/api/analyze/route.ts` | Phase 1 orchestration — exports `CPICResult` type used by `/api/explain` |
 | `app/api/explain/route.ts` | Phase 2 — calls `explainAll()` once, merges results into full `AnalysisResult[]` |
-| `components/vcf-upload.tsx` | Drag-and-drop VCF file upload, parses in browser via FileReader |
-| `components/drug-input.tsx` | Drug selection grid (toggle buttons for all 6 supported drugs) |
-| `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, confidence bar, AI explanation accordion |
+| `components/motion-primitives.tsx` | Reusable framer-motion wrappers: `FadeIn`, `FadeInSimple`, `StaggerContainer`, `StaggerItem`, `HoverLift`, `ScaleIn`, `AnimatedStat` |
+| `components/vcf-upload.tsx` | Drag-and-drop VCF upload with AnimatePresence idle/dragging/success/error states |
+| `components/drug-input.tsx` | Drug selection grid — 6 toggle cards with category badges and animated check indicator |
+| `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, animated confidence bar, AI explanation accordion |
 
 ### Supported genes and their drugs
 ```
@@ -126,6 +128,72 @@ Both alleles identified in VCF  → 0.95
 Only one allele identified      → 0.70
 No alleles found for gene       → 0.30, phenotype = "Unknown"
 ```
+
+---
+
+## Design System
+
+### Color tokens (app/globals.css)
+
+All colors use `oklch()` — never add hardcoded hex values to components.
+
+| Token | Light | Dark | Usage |
+|---|---|---|---|
+| `--primary` | `oklch(0.52 0.14 184.5)` | `oklch(0.65 0.14 184.5)` | Medical teal — CTAs, active states, icons |
+| `--background` | `oklch(0.985 0.003 247)` | `oklch(0.09 0.018 248)` | Page background |
+| `--card` | `oklch(1 0 0)` | `oklch(0.13 0.022 252)` | Card/panel surface |
+| `--muted` | `oklch(0.96 0.004 247)` | `oklch(0.20 0.025 252)` | Subtle background fills |
+| `--border` | `oklch(0.91 0.006 247)` | `oklch(0.22 0.020 252)` | Borders and dividers |
+| `--accent` | `oklch(0.96 0.014 184.5)` | `oklch(0.22 0.045 184.5)` | Teal tint for backgrounds |
+
+### Custom utility classes
+
+```css
+.shadow-card      /* subtle 2-layer elevation */
+.shadow-card-md   /* medium elevation */
+.shadow-card-lg   /* large elevation — hero CTAs, modals */
+.hero-gradient    /* radial teal gradient for hero section background */
+.eyebrow          /* section label — xs uppercase tracking-widest text-primary */
+.gradient-text    /* teal gradient applied to text via background-clip */
+```
+
+### Border radius
+
+`--radius: 0.75rem` — use `rounded-xl` (0.75rem) as the standard card radius.
+
+### Animation rules
+
+- All animation components live in `components/motion-primitives.tsx`
+- Every wrapper checks `useReducedMotion()` and degrades to a plain `<div>` when true
+- `viewport={{ once: true, margin: "0px" }}` — triggers when element enters viewport
+- **Hero section**: use `motion.div` with `animate` directly (not `whileInView`) since it's in the initial viewport on load
+- **Below-fold sections**: use `FadeIn`, `StaggerContainer` / `StaggerItem` which use `whileInView`
+- Do NOT use `whileInView` on elements that are visible on page load — they may not re-trigger
+
+### Landing page sections (`app/page.tsx`)
+
+Full `"use client"` page. Sub-components (all defined in the same file):
+
+| Component | Section |
+|---|---|
+| `TopNav` | Sticky nav — scroll-aware shadow, mobile hamburger with `AnimatePresence` |
+| `HeroSection` | Headline, dual CTAs, stats grid — animates on mount (not whileInView) |
+| `TrustBar` | Trust signal strip below hero |
+| `HowItWorksSection` | 3-step numbered guide with connecting line |
+| `FeaturesSection` | 6-card `HoverLift` grid |
+| `SecuritySection` | 2-col card with privacy principle checklist |
+| `TestimonialsSection` | 3 clinician quote cards |
+| `FAQSection` | shadcn `Accordion` with 6 questions |
+| `CTASection` | Teal full-width CTA panel |
+| `FooterSection` | 4-column grid with legal disclaimer |
+
+### Analyze page layout (`app/analyze/page.tsx`)
+
+- **Sticky topbar** with back-to-home link and "Patient Analysis" badge
+- **Input card** with three numbered sections (01 Patient Details / 02 Genetic Data / 03 Drug Selection)
+- `PhaseIndicator` component shows which phase (CPIC vs AI) is running, with description
+- Results appear below with staggered card mount animations
+- `AnimatePresence` gates the skeleton cards (phase=analyzing) and results (phase=explaining|done)
 
 ---
 
@@ -181,6 +249,8 @@ pnpm dlx shadcn@latest add <component-name>
 ```
 
 Config is in `components.json`. Style is `new-york`, Tailwind v4, RSC-enabled. Installed components live in `components/ui/`. Uses unified `radix-ui` package (not `@radix-ui/react-*`).
+
+Currently installed: `card`, `button`, `input`, `badge`, `separator`, `skeleton`, `progress`, `accordion`.
 
 ---
 

@@ -1,5 +1,5 @@
-import { NextResponse }             from "next/server";
-import { getKeyStatus, generateWithFallback } from "@/lib/ai";
+import { NextResponse }                        from "next/server";
+import { getKeyStatus, generateWithFallback }  from "@/lib/ai";
 
 export const runtime = "nodejs";
 
@@ -9,27 +9,26 @@ export async function GET() {
   if (!status.configured) {
     return NextResponse.json({
       ok:    false,
-      error: "No API keys configured.",
+      error: "No API keys configured. Set at least one of: GOOGLE_API_KEY_1, OPENROUTER_API_KEY, OPENAI_API_KEY",
       keys:  status,
     }, { status: 500 });
   }
 
-  // Test using the resilient path (tries all keys + models before failing)
   try {
     const text = await generateWithFallback('Reply with only the word "ok"');
 
     if (!text) {
       return NextResponse.json({
         ok:    false,
-        error: "All providers exhausted. Gemini free-tier quota exceeded and no OpenAI key configured (or also exhausted). Wait for daily quota reset or add OPENAI_API_KEY.",
+        error: "All providers exhausted (Gemini quota + OpenRouter down + no OpenAI key). Wait for daily quota reset.",
         keys:  status,
       }, { status: 500 });
     }
 
     return NextResponse.json({
-      ok:     true,
-      gemini: text.trim(),
-      keys:   status,
+      ok:       true,
+      response: text.trim(),
+      keys:     status,
     });
   } catch (err) {
     return NextResponse.json({
