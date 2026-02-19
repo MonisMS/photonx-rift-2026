@@ -377,7 +377,7 @@ describe("VCF Parser — INFO Tag Parsing", () => {
 // ─── Real Sample File Content ─────────────────────────────────────────────────
 
 describe("VCF Parser — Sample Files (inline)", () => {
-  it("parses sample_all_normal content", () => {
+  it("parses sample_all_normal content (0/0 = no carrier variants, genes detected)", () => {
     const vcf = [
       "##fileformat=VCFv4.2",
       '##INFO=<ID=GENE,Number=1,Type=String,Description="Gene symbol">',
@@ -395,7 +395,11 @@ describe("VCF Parser — Sample Files (inline)", () => {
     const result = parseVCF(vcf);
     expect(result.success).toBe(true);
     expect(result.patientId).toBe("PATIENT_NM_001");
-    expect(result.variants).toHaveLength(6);
+    // All 0/0 → no carrier variants extracted
+    expect(result.variants).toHaveLength(0);
+    // But all 6 genes are detected (sequenced)
+    expect(result.genesDetected).toHaveLength(6);
+    expect(result.genesDetected.sort()).toEqual(["CYP2C19", "CYP2C9", "CYP2D6", "DPYD", "SLCO1B1", "TPMT"]);
   });
 
   it("parses sample_codeine_pm content (CYP2D6 *4/*4)", () => {

@@ -46,6 +46,7 @@ export default function AnalyzePage() {
   const session = useAnalysisSession();
   const {
     variants, setVariants,
+    genesDetected, setGenesDetected,
     patientId, setPatientId,
     selectedDrugs, setSelectedDrugs,
     phase,
@@ -112,7 +113,7 @@ export default function AnalyzePage() {
               <StepProgress
                 steps={[
                   { label: "Patient ID", complete: !!patientId.trim() },
-                  { label: "Genetic Data", complete: variants.length > 0 },
+                  { label: "Genetic Data", complete: variants.length > 0 || genesDetected.length > 0 },
                   { label: "Drug Selection", complete: selectedDrugs.length > 0 },
                 ]}
               />
@@ -176,15 +177,18 @@ export default function AnalyzePage() {
                   </div>
 
                   <VCFUpload
-                    onParsed={(v, pid) => {
+                    onParsed={(v, pid, gd) => {
                       setVariants(v);
+                      setGenesDetected(gd);
                       if (!patientId) setPatientId(pid);
                     }}
-                    onClear={() => setVariants([])}
+                    onClear={() => { setVariants([]); setGenesDetected([]); }}
                   />
 
                   {/* Gene phenotype heatmap */}
-                  {variants.length > 0 && <GeneHeatmap variants={variants} />}
+                  {(variants.length > 0 || genesDetected.length > 0) && (
+                    <GeneHeatmap variants={variants} genesDetected={genesDetected} />
+                  )}
 
                   {/* Sample file links */}
                   <div className="mt-3 flex flex-wrap items-center gap-1 text-[13px] text-muted-foreground">
@@ -245,7 +249,7 @@ export default function AnalyzePage() {
                       <CircleCheck className="h-4 w-4 text-emerald-600 shrink-0" />
                       <p className="text-xs font-semibold text-emerald-800">Ready to run analysis</p>
                       <span className="text-[10px] text-emerald-600 ml-auto">
-                        {patientId} · {variants.length} variants · {selectedDrugs.length} drug{selectedDrugs.length > 1 ? "s" : ""}
+                        {patientId} · {genesDetected.length} gene{genesDetected.length !== 1 ? "s" : ""} · {variants.length} variant{variants.length !== 1 ? "s" : ""} · {selectedDrugs.length} drug{selectedDrugs.length > 1 ? "s" : ""}
                       </span>
                     </motion.div>
                   )}
@@ -294,7 +298,7 @@ export default function AnalyzePage() {
 
                     {!canAnalyze && !isLoading && (
                       <p className="text-[13px] text-muted-foreground">
-                        {!variants.length    && "Upload a VCF file. "}
+                        {!variants.length && !genesDetected.length && "Upload a VCF file. "}
                         {!patientId.trim()   && "Enter a patient ID. "}
                         {!selectedDrugs.length && "Select at least one drug."}
                       </p>

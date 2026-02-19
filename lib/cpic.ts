@@ -213,9 +213,11 @@ export function getRisk(drug: SupportedDrug, phenotype: Phenotype): RiskEntry {
 
 // ─── Confidence Score ─────────────────────────────────────────────────────────
 
-export function getConfidence(variants: VCFVariant[], gene: SupportedGene): number {
+export function getConfidence(variants: VCFVariant[], gene: SupportedGene, geneDetected = false): number {
   const count = variants.filter((v) => v.gene === gene).length;
   if (count >= 2) return 0.95;
   if (count === 1) return 0.70;
+  // Gene was sequenced but no variant alleles found → patient is reference (normal)
+  if (geneDetected) return 0.90;
   return 0.30;
 }

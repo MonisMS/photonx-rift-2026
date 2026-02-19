@@ -26,20 +26,23 @@ function simulateAnalyzePipeline(
     patientId,
     variants: parsed.variants,
     drugs: drugList,
+    genesDetected: parsed.genesDetected,
   });
 
   if (!validation.valid) return { results: [], error: validation.error };
 
-  const { variants, drugs } = validation;
+  const { variants, drugs, genesDetected } = validation;
   const timestamp = "2026-02-20T12:00:00.000Z";
-  const genesAnalyzed = [...new Set(variants.map((v) => v.gene))];
+  const genesDetectedSet = new Set(genesDetected);
+  const genesAnalyzed = [...new Set([...genesDetected, ...variants.map((v) => v.gene)])];
 
   const results = drugs.map((drug: SupportedDrug) => {
     const gene = DRUG_GENE_MAP[drug];
+    const geneWasSequenced = genesDetectedSet.has(gene);
     const diplotype = buildDiplotype(variants, gene) ?? "*1/*1";
     const phenotype = getPhenotype(gene, diplotype);
     const risk = getRisk(drug, phenotype);
-    const confidence = getConfidence(variants, gene);
+    const confidence = getConfidence(variants, gene, geneWasSequenced);
     const geneVariants = variants.filter((v) => v.gene === gene);
 
     return {
@@ -375,10 +378,10 @@ describe("Integration — JSON Output Schema", () => {
 // ─── Confidence Score Integration ─────────────────────────────────────────────
 
 describe("Integration — Confidence Scores", () => {
-  it("all-normal VCF: each gene has 1 allele → confidence 0.70", () => {
-    // Each gene has exactly 1 variant line in the all-normal VCF
+  it("all-normal VCF: genes detected but no carrier variants → confidence 0.90", () => {
+    // Each gene is sequenced (0/0) but patient carries no ALT alleles
     const { results } = simulateAnalyzePipeline(ALL_NORMAL_VCF, ["CODEINE"]);
-    expect(results[0].risk_assessment.confidence_score).toBe(0.70);
+    expect(results[0].risk_assessment.confidence_score).toBe(0.90);
   });
 
   it("codeine PM VCF: CYP2D6 has 2 alleles → confidence 0.95", () => {
@@ -549,11 +552,10 @@ describe("Integration — Hackathon Edge Cases", () => {
     }
   });
 
-  it("genes_analyzed reflects only genes present in the VCF", () => {
+  it("genes_analyzed reflects genes detected in the VCF", () => {
     const { results } = simulateAnalyzePipeline(CODEINE_PM_VCF, ["CODEINE", "WARFARIN"], "TEST");
-    // Only CYP2D6 is in the VCF
+    // Only CYP2D6 is in the VCF (both as carrier variant and genesDetected)
     expect(results[0].quality_metrics.genes_analyzed).toEqual(["CYP2D6"]);
-    // Even WARFARIN result should show same genes_analyzed (it's file-level)
     expect(results[1].quality_metrics.genes_analyzed).toEqual(["CYP2D6"]);
   });
 

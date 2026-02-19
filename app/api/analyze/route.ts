@@ -20,16 +20,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  const { variants, drugs, patientId } = validation;
+  const { variants, drugs, patientId, genesDetected } = validation;
   const timestamp = new Date().toISOString();
-  const genesAnalyzed = [...new Set(variants.map((v) => v.gene))];
+  const genesDetectedSet = new Set(genesDetected);
+  const genesAnalyzed = [...new Set([...genesDetected, ...variants.map((v) => v.gene)])];
 
   const results: CPICResult[] = drugs.map((drug: SupportedDrug) => {
     const gene       = DRUG_GENE_MAP[drug];
-    const diplotype  = buildDiplotype(variants, gene) ?? "*1/*1";
+    const geneWasSequenced = genesDetectedSet.has(gene);
+    const diplotype  = buildDiplotype(variants, gene) ?? (geneWasSequenced ? "*1/*1" : "*1/*1");
     const phenotype  = getPhenotype(gene, diplotype);
     const risk       = getRisk(drug, phenotype);
-    const confidence = getConfidence(variants, gene);
+    const confidence = getConfidence(variants, gene, geneWasSequenced);
 
     const geneVariants = variants.filter((v) => v.gene === gene);
 

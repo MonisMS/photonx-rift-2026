@@ -137,7 +137,7 @@ describe("Validator — Variant Validation", () => {
       drugs: ["CODEINE"],
     });
     expect(result.valid).toBe(false);
-    expect(result.error).toContain("No valid variants");
+    expect(result.error).toContain("No variants or sequenced genes");
   });
 
   it("rejects variants with invalid star allele format", () => {

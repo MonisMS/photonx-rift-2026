@@ -33,45 +33,57 @@ export interface ValidationResult {
   variants: VCFVariant[];
   drugs: SupportedDrug[];
   patientId: string;
+  genesDetected: SupportedGene[];
   error?: string;
 }
 
 export function validateRequest(body: unknown): ValidationResult {
+  const fail = (error: string, partial?: Partial<ValidationResult>): ValidationResult => ({
+    valid: false, variants: [], drugs: [], patientId: "", genesDetected: [], error, ...partial,
+  });
+
   if (!body || typeof body !== "object") {
-    return { valid: false, variants: [], drugs: [], patientId: "", error: "Invalid request body." };
+    return fail("Invalid request body.");
   }
 
-  const { variants, drugs, patientId } = body as Record<string, unknown>;
+  const { variants, drugs, patientId, genesDetected } = body as Record<string, unknown>;
 
   // Validate patientId
   if (typeof patientId !== "string" || !patientId.trim()) {
-    return { valid: false, variants: [], drugs: [], patientId: "", error: "Missing patient ID." };
+    return fail("Missing patient ID.");
   }
 
-  // Validate variants array
-  if (!Array.isArray(variants) || variants.length === 0) {
-    return { valid: false, variants: [], drugs: [], patientId, error: "No variants provided." };
+  // Validate variants array (can be empty when genesDetected covers the genes)
+  if (!Array.isArray(variants)) {
+    return fail("No variants provided.", { patientId });
   }
 
   const validVariants = variants.filter(isValidVariant);
-  if (validVariants.length === 0) {
-    return { valid: false, variants: [], drugs: [], patientId, error: "No valid variants found after validation." };
+
+  // Parse genesDetected (optional — older clients may not send it)
+  const validGenes: SupportedGene[] = Array.isArray(genesDetected)
+    ? genesDetected.filter((g): g is SupportedGene => typeof g === "string" && SUPPORTED_GENES.has(g))
+    : [...new Set(validVariants.map((v) => v.gene))];
+
+  // Must have either variants or detected genes
+  if (validVariants.length === 0 && validGenes.length === 0) {
+    return fail("No variants or sequenced genes provided.", { patientId });
   }
 
   // Validate drugs array
   if (!Array.isArray(drugs) || drugs.length === 0) {
-    return { valid: false, variants: validVariants, drugs: [], patientId, error: "No drugs provided." };
+    return fail("No drugs provided.", { patientId, variants: validVariants, genesDetected: validGenes });
   }
 
   const validDrugs = drugs.filter(
     (d): d is SupportedDrug => typeof d === "string" && SUPPORTED_DRUGS.has(d)
   );
   if (validDrugs.length === 0) {
-    return {
-      valid: false, variants: validVariants, drugs: [], patientId,
-      error: `No supported drugs found. Supported: ${[...SUPPORTED_DRUGS].join(", ")}`,
-    };
+    return fail(
+      `No supported drugs found. Supported: ${[...SUPPORTED_DRUGS].join(", ")}`,
+      { patientId, variants: validVariants, genesDetected: validGenes },
+    );
   }
 
-  return { valid: true, variants: validVariants, drugs: validDrugs, patientId: patientId.trim() };
+  return { valid: true, variants: validVariants, drugs: validDrugs, patientId: patientId.trim(), genesDetected: validGenes };
 }

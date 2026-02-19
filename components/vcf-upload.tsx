@@ -3,13 +3,13 @@
 import { useRef, useState }   from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { parseVCF }           from "@/lib/vcf-parser";
-import type { VCFVariant }    from "@/lib/types";
+import type { VCFVariant, SupportedGene } from "@/lib/types";
 import { cn }                 from "@/lib/utils";
 import { UploadCloud, FileCheck2, XCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface VCFUploadProps {
-  onParsed: (variants: VCFVariant[], patientId: string) => void;
+  onParsed: (variants: VCFVariant[], patientId: string, genesDetected: SupportedGene[]) => void;
   onClear:  () => void;
 }
 
@@ -45,14 +45,14 @@ export function VCFUpload({ onParsed, onClear }: VCFUploadProps) {
         setErrorMsg(result.error ?? "Failed to parse VCF file.");
         return;
       }
-      if (result.variants.length === 0) {
+      if (result.variants.length === 0 && result.genesDetected.length === 0) {
         setState("error");
         setErrorMsg("No pharmacogenomic variants found in this file.");
         return;
       }
       setState("success");
       setFileName(file.name);
-      onParsed(result.variants, result.patientId);
+      onParsed(result.variants, result.patientId, result.genesDetected);
     };
     reader.readAsText(file);
   }

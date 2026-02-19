@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { VCFVariant, SupportedDrug, AnalysisResult } from "@/lib/types";
+import type { VCFVariant, SupportedDrug, SupportedGene, AnalysisResult } from "@/lib/types";
 import { generatePDFReport } from "@/lib/pdf-report";
 
 type Phase = "idle" | "analyzing" | "explaining" | "done" | "error";
@@ -12,6 +12,7 @@ const STORAGE_KEY = "pharmaguard-session";
 interface StoredSession {
   patientId:     string;
   variants:      VCFVariant[];
+  genesDetected: SupportedGene[];
   selectedDrugs: SupportedDrug[];
   cpicResults:   CPICResult[];
   fullResults:   AnalysisResult[];
@@ -21,6 +22,7 @@ interface StoredSession {
 
 export function useAnalysisSession() {
   const [variants,      setVariants]      = useState<VCFVariant[]>([]);
+  const [genesDetected, setGenesDetected] = useState<SupportedGene[]>([]);
   const [patientId,     setPatientId]     = useState("");
   const [selectedDrugs, setSelectedDrugs] = useState<SupportedDrug[]>([]);
   const [phase,         setPhase]         = useState<Phase>("idle");
@@ -40,6 +42,7 @@ export function useAnalysisSession() {
         if (Date.now() - session.savedAt < 24 * 60 * 60 * 1000) {
           setPatientId(session.patientId);
           setVariants(session.variants);
+          setGenesDetected(session.genesDetected ?? []);
           setSelectedDrugs(session.selectedDrugs);
           setCpicResults(session.cpicResults);
           setFullResults(session.fullResults);
@@ -62,6 +65,7 @@ export function useAnalysisSession() {
       const session: StoredSession = {
         patientId,
         variants,
+        genesDetected,
         selectedDrugs,
         cpicResults,
         fullResults,
@@ -72,7 +76,7 @@ export function useAnalysisSession() {
     } catch {
       // Storage full or unavailable — ignore
     }
-  }, [hydrated, patientId, variants, selectedDrugs, cpicResults, fullResults, analysisMeta]);
+  }, [hydrated, patientId, variants, genesDetected, selectedDrugs, cpicResults, fullResults, analysisMeta]);
 
   useEffect(() => {
     saveSession();
@@ -81,6 +85,7 @@ export function useAnalysisSession() {
   function clearSession() {
     localStorage.removeItem(STORAGE_KEY);
     setVariants([]);
+    setGenesDetected([]);
     setPatientId("");
     setSelectedDrugs([]);
     setCpicResults([]);
@@ -102,7 +107,7 @@ export function useAnalysisSession() {
     const analyzeRes = await fetch("/api/analyze", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ variants, drugs: selectedDrugs, patientId: patientId.trim() }),
+      body:    JSON.stringify({ variants, drugs: selectedDrugs, patientId: patientId.trim(), genesDetected }),
     });
 
     if (!analyzeRes.ok) {
@@ -168,7 +173,8 @@ export function useAnalysisSession() {
     generatePDFReport(resultsToShow, patientId, variants.length);
   }
 
-  const canAnalyze    = variants.length > 0 && selectedDrugs.length > 0 && patientId.trim().length > 0;
+  const hasGeneticData = variants.length > 0 || genesDetected.length > 0;
+  const canAnalyze     = hasGeneticData && selectedDrugs.length > 0 && patientId.trim().length > 0;
   const isLoading     = phase === "analyzing" || phase === "explaining";
   const resultsToShow = fullResults.length > 0 ? fullResults : cpicResults;
   const showResults   = cpicResults.length > 0 || phase === "done";
@@ -176,6 +182,7 @@ export function useAnalysisSession() {
   return {
     // State
     variants,      setVariants,
+    genesDetected, setGenesDetected,
     patientId,     setPatientId,
     selectedDrugs, setSelectedDrugs,
     phase,

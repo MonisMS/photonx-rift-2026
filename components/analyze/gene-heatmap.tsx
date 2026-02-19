@@ -24,8 +24,9 @@ const PHENOTYPE_FULL: Record<string, string> = {
   Unknown: "—",
 };
 
-export function GeneHeatmap({ variants }: { variants: VCFVariant[] }) {
-  const foundGenes = new Set(variants.map((v) => v.gene));
+export function GeneHeatmap({ variants, genesDetected = [] }: { variants: VCFVariant[]; genesDetected?: SupportedGene[] }) {
+  // Genes are "found" if they appear in genesDetected OR have carrier variants
+  const foundGenes = new Set<SupportedGene>([...genesDetected, ...variants.map((v) => v.gene)]);
   const coverage = foundGenes.size;
   const completeness = coverage >= 5 ? "High" : coverage >= 3 ? "Moderate" : "Low";
   const compColor =

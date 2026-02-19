@@ -19,8 +19,11 @@ Full domain knowledge, CPIC tables, data flow, and build plan are in `PLAN.md`. 
 ```bash
 pnpm dev          # start dev server (localhost:3000)
 pnpm build        # production build
+pnpm start        # start production server
 pnpm lint         # eslint
 pnpm tsc --noEmit # type check without building
+pnpm test         # run vitest test suite once
+pnpm test:watch   # run vitest in watch mode
 ```
 
 Package manager is **pnpm**. Never use npm or yarn.
@@ -38,9 +41,11 @@ Package manager is **pnpm**. Never use npm or yarn.
 | AI SDK | Vercel AI SDK (`ai` + `@ai-sdk/google` + `@ai-sdk/openai`) | ai 6.x |
 | Primary AI | Gemini `gemini-2.0-flash` → `gemini-2.0-flash-lite` (free) | — |
 | Fallback AI | OpenRouter (free: Llama 70B/8B, Mistral 7B) → OpenAI `gpt-4o-mini` (paid) | — |
-| PDF Export | jspdf + jspdf-autotable | 4.x |
+| PDF Export | jspdf + jspdf-autotable | jspdf 4.x, autotable 5.x |
 | Icons | lucide-react | — |
 | Type safety | TypeScript strict mode | 5.x |
+| CSS Animations | tw-animate-css | 1.x |
+| Testing | Vitest | 4.x |
 
 ---
 
@@ -51,7 +56,7 @@ Package manager is **pnpm**. Never use npm or yarn.
 | Route | File | Purpose |
 |---|---|---|
 | `GET /` | `app/page.tsx` | Landing page shell — imports 10 section components from `components/landing/` |
-| `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state, localStorage persistence, API calls |
+| `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — delegates state to `useAnalysisSession` hook |
 | `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates input + CPIC lookup → returns `CPICResult[]` instantly, zero AI calls |
 | `POST /api/explain` | `app/api/explain/route.ts` | Phase 2 (batch, legacy): takes `CPICResult[]`, makes **1 batched AI call** → returns `AnalysisResult[]` |
 | `POST /api/explain-single` | `app/api/explain-single/route.ts` | Phase 2 (parallel, primary): takes **1** `CPICResult`, returns **1** `AnalysisResult`. Client fires N in parallel for progressive card loading |
@@ -88,7 +93,7 @@ Server (Phase 2 — /api/explain-single × N in parallel):
 - **Diplotype alleles are always sorted** (lower number first: `*1/*4` not `*4/*1`) to ensure consistent table matching.
 - **If only one allele found** for a gene, `buildDiplotype` prepends `*1` (normal allele) as the other copy.
 - **Phase 1 and Phase 2 are separate HTTP requests**: the browser renders CPIC results immediately, then enriches them with AI explanations progressively.
-- **Session persistence via localStorage**: all state (patient ID, variants, drugs, results, AI explanations, metrics) is saved to `localStorage` under key `pharmaguard-session`. Sessions auto-expire after 24 hours. "New Analysis" button clears the session.
+- **Session persistence via localStorage**: all state logic extracted to `hooks/use-analysis-session.ts`. Saved under key `pharmaguard-session`, auto-expires after 24 hours. "New Analysis" button clears the session.
 - **Gene phenotype heatmap computed client-side**: after VCF upload, `buildDiplotype()` and `getPhenotype()` from `lib/cpic.ts` run in the browser to show a per-gene phenotype preview before any API call.
 
 ### Key files
@@ -106,7 +111,8 @@ Server (Phase 2 — /api/explain-single × N in parallel):
 | `app/api/analyze/route.ts` | Phase 1 orchestration — exports `CPICResult` type |
 | `app/api/explain-single/route.ts` | Phase 2 (primary) — single drug explain, called N times in parallel |
 | `app/api/explain/route.ts` | Phase 2 (legacy batch) — calls `explainAll()` once |
-| `components/motion-primitives.tsx` | Reusable framer-motion wrappers: `FadeInUp`, `FadeIn`, `StaggerContainer`, `StaggerItem`, `HoverLift`. Shared `EASE` and `VIEWPORT` constants. All check `useReducedMotion()` |
+| `hooks/use-analysis-session.ts` | All analyze-page state, session persistence (localStorage), API calls (`handleAnalyze`), export actions (PDF/JSON/copy). The analyze page just calls `useAnalysisSession()` |
+| `components/motion-primitives.tsx` | Reusable framer-motion wrappers: `FadeInUp`, `FadeIn`, `StaggerContainer` (`stagger?` prop), `StaggerItem`, `HoverLift` (`y?` prop). Also exports variant objects (`fadeInUpVariants`, etc.). Shared `EASE` and `VIEWPORT` constants. All check `useReducedMotion()` |
 | `components/landing/data.ts` | Shared data constants for all landing sections: `NAV_LINKS`, `STATS`, `TRUST_ITEMS`, `STEPS`, `FEATURES`, `TESTIMONIALS`, `FAQS`, `FOOTER_LINKS` |
 | `components/landing/*.tsx` | Landing page split into 10 section components: `top-nav`, `hero-section`, `trust-bar`, `how-it-works-section`, `features-section`, `security-section`, `testimonials-section`, `faq-section`, `cta-section`, `footer-section` |
 | `components/analyze/step-progress.tsx` | 3-node horizontal progress flow — completion-driven (patientId / variants / drugs), animated checkmarks + connecting line fill |
@@ -114,9 +120,13 @@ Server (Phase 2 — /api/explain-single × N in parallel):
 | `components/analyze/phase-indicator.tsx` | Animated phase badge (CPIC analyzing / AI explaining) with `AnimatePresence` |
 | `components/analyze/gene-heatmap.tsx` | Per-gene phenotype heatmap grid — client-side CPIC lookup, coverage/completeness badges |
 | `components/analyze/analysis-results.tsx` | Results section: skeleton loading, result cards grid, drug comparison table, metrics bar, export buttons, system architecture accordion |
+| `components/analyze/drug-comparison-table.tsx` | Scrollable multi-drug comparison table (Drug / Gene / Diplotype / Phenotype / Risk / Confidence), shown when 2+ results |
+| `components/analyze/result-skeleton.tsx` | Loading skeleton placeholder card matching `ResultCard` shape, shown during analyzing phase |
 | `components/vcf-upload.tsx` | Drag-and-drop VCF upload with floating icon animation, drag-over glow ring, success scale pulse, error shake, `useReducedMotion()` |
 | `components/drug-input.tsx` | Drug combobox with search, comma-separated batch add, brand name aliases, animated pill chips (`rounded-full`), "N drugs selected" badge, soft hover tints |
 | `components/result-card.tsx` | Per-drug result card with risk badge, diplotype, animated confidence bar, structured AI explanation panel |
+| `__tests__/*.test.ts` | Vitest test suite: `cpic.test.ts`, `vcf-parser.test.ts`, `validator.test.ts`, `integration.test.ts` |
+| `vitest.config.ts` | Vitest configuration with `@` alias pointing to repo root |
 
 ### Supported genes and their drugs
 ```
@@ -147,6 +157,14 @@ No alleles found for gene       → 0.30, phenotype = "Unknown"
 ---
 
 ## Design System
+
+### CSS imports (app/globals.css)
+
+```css
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+```
 
 ### Color tokens (app/globals.css)
 
@@ -181,20 +199,24 @@ All colors use `oklch()` — never add hardcoded hex values to components.
 .bg-dna-subtle          /* subtle deep-green DNA helix texture for analyze page (lg+ only, 4% opacity) */
 .btn-clinical           /* clinical CTA button — inner shadow highlight + outer shadow, hover shadow grow */
 .animate-shimmer-clinical /* sweeping white gradient shimmer for loading button state */
+.focus-brand             /* custom teal focus ring */
+.animate-marquee         /* infinite marquee scroll animation */
+.hero-glow-orb           /* animated glow orb for hero (8s breathing) */
+.hero-glow-orb-2         /* second glow orb for hero (12s breathing) */
 ```
 
 ### Page gradient tokens (landing page, dark→light top→bottom)
 
 ```
---pg-hero        oklch(0.16)  — hero section background
---pg-hero-mid    oklch(0.18)  — hero bottom gradient
---pg-trust       oklch(0.21)  — trust bar
---pg-deep        oklch(0.28)  — how-it-works section
---pg-mid         oklch(0.40)  — features section
---pg-mid-light   oklch(0.55)  — unused (available for future sections)
---pg-light       oklch(0.70)  — security section
---pg-lighter     oklch(0.82)  — testimonials section
---pg-near-white  oklch(0.92)  — FAQ + CTA sections
+--pg-hero        oklch(0.16 0.065 170)  — hero section background
+--pg-hero-mid    oklch(0.18 0.075 168)  — hero bottom gradient
+--pg-trust       oklch(0.21 0.072 168)  — trust bar
+--pg-deep        oklch(0.28 0.060 168)  — how-it-works section
+--pg-mid         oklch(0.40 0.050 168)  — features section
+--pg-mid-light   oklch(0.55 0.040 168)  — unused (available for future sections)
+--pg-light       oklch(0.70 0.030 168)  — security section
+--pg-lighter     oklch(0.82 0.020 167)  — testimonials section
+--pg-near-white  oklch(0.92 0.010 167)  — FAQ + CTA sections
 ```
 
 Gradient bridge `<div>`s in `app/page.tsx` smooth transitions between adjacent tokens.
@@ -262,7 +284,7 @@ Gradient bridge `<div>`s in `app/page.tsx` smooth transitions between adjacent t
 - **Results section** (`AnalysisResults`): performance metrics bar, partial genotype warning, drug comparison table, per-drug result cards with progressive AI explanation loading
 - **System Architecture accordion** — appears below results only (collapsed by default)
 - **Export options**: Download PDF (clinical report), Copy JSON, Download JSON
-- **Session persistence**: all state saved to localStorage, survives page refresh, auto-expires after 24h
+- **Session persistence**: all state managed by `useAnalysisSession()` hook, saved to localStorage, survives page refresh, auto-expires after 24h
 
 ### Analyze page typography hierarchy
 
@@ -290,6 +312,9 @@ Located in `public/samples/` — linked from the analyze page:
 | `sample_codeine_pm.vcf` | CYP2D6 `*4/*4` (PM) — Codeine Ineffective |
 | `sample_codeine_toxic.vcf` | CYP2D6 with `*4` variants (different patient ID) |
 | `sample_multi_risk.vcf` | Multiple genes with risk variants — covers Adjust Dosage + Toxic cases |
+| `sample_mixed_coverage.vcf` | Mixed allele coverage across genes — tests partial genotype handling |
+| `sample_urm.vcf` | Ultra-rapid metabolizer variants — tests URM phenotype paths |
+| `sample_worst_case.vcf` | Worst-case risk variants across all genes — stress test for highest severity |
 
 ---
 
