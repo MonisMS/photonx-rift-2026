@@ -52,7 +52,8 @@ Package manager is **pnpm**. Never use npm or yarn.
 | `GET /` | `app/page.tsx` | Full landing page — hero, features, how-it-works, FAQ, footer |
 | `GET /analyze` | `app/analyze/page.tsx` | Main analysis UI — all state and API calls |
 | `POST /api/analyze` | `app/api/analyze/route.ts` | Phase 1: validates input + CPIC lookup → returns `CPICResult[]` instantly, zero AI calls |
-| `POST /api/explain` | `app/api/explain/route.ts` | Phase 2: takes `CPICResult[]`, makes **1 batched AI call** → returns `AnalysisResult[]` |
+| `POST /api/explain` | `app/api/explain/route.ts` | Phase 2 (batch): takes `CPICResult[]`, makes **1 batched AI call** → returns `AnalysisResult[]` |
+| `POST /api/explain-single` | `app/api/explain-single/route.ts` | Phase 2 (parallel): takes **1** `CPICResult`, returns **1** `AnalysisResult`. Client fires N in parallel for progressive card loading |
 | `GET /api/test-keys` | `app/api/test-keys/route.ts` | Dev utility: verifies all configured AI providers are live |
 
 ### The core pipeline (how a request flows)
@@ -62,16 +63,16 @@ Browser: FileReader reads .vcf as text
        → lib/vcf-parser.ts extracts variants [{gene, starAllele, rsid}]
        → POST /api/analyze with {variants, drugs[], patientId}
        → renders risk cards instantly (Phase 1 done, no AI involved)
-       → POST /api/explain → fills in AI explanations (Phase 2)
+       → N parallel POST /api/explain-single → cards fill progressively
 
 Server (Phase 1 — /api/analyze):
   lib/validator.ts   → validates variants / drugs / patientId
   lib/cpic.ts        → buildDiplotype → getPhenotype → getRisk + getConfidence
   → returns CPICResult[] instantly, zero API calls
 
-Server (Phase 2 — /api/explain):
-  lib/gemini.ts      → buildBatchPrompt(all drugs) → single prompt string
-  lib/ai.ts          → generateWithFallback(prompt) → 1 API call total
+Server (Phase 2 — /api/explain-single × N in parallel):
+  lib/gemini.ts      → buildSinglePrompt(1 drug) → small focused prompt
+  lib/ai.ts          → generateWithFallback(prompt) → 1 API call per drug
   → merges explanations[N] into full AnalysisResult[]
 ```
 

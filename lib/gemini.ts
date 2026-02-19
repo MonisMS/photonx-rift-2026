@@ -89,3 +89,38 @@ export async function explainAll(inputs: ExplainInput[]): Promise<LLMExplanation
     return inputs.map(() => FALLBACK_EXPLANATION);
   }
 }
+
+// ─── Single Drug Explainer — 1 API call for 1 drug (used for parallel) ───────
+
+function buildSinglePrompt(input: ExplainInput): string {
+  return `You are a clinical pharmacogenomics expert. For the drug below, return ONLY a single JSON object (no markdown, no extra text).
+
+Drug: ${input.drug} | Gene: ${input.gene} | Diplotype: ${input.diplotype} | Phenotype: ${input.phenotype} | Variant: ${input.rsid} | Risk: ${input.risk_label} (${input.severity})
+
+Fields:
+- summary: one sentence risk summary for a non-specialist
+- mechanism: 2-3 sentences on biological mechanism citing the rsID and diplotype
+- recommendation: specific CPIC-aligned clinical action
+- citations: one sentence referencing the specific rsID, star allele, diplotype, and CPIC guideline
+
+Return exactly: {"summary":"...","mechanism":"...","recommendation":"...","citations":"..."}`;
+}
+
+export async function explainSingle(input: ExplainInput): Promise<LLMExplanation> {
+  try {
+    const text = await generateWithFallback(buildSinglePrompt(input));
+    if (!text) return FALLBACK_EXPLANATION;
+
+    const parsed = JSON.parse(extractJSON(text)) as LLMExplanation;
+
+    return {
+      summary:        parsed?.summary        || FALLBACK_EXPLANATION.summary,
+      mechanism:      parsed?.mechanism      || FALLBACK_EXPLANATION.mechanism,
+      recommendation: parsed?.recommendation || FALLBACK_EXPLANATION.recommendation,
+      citations:      parsed?.citations      || FALLBACK_EXPLANATION.citations,
+    };
+  } catch (err) {
+    console.error(`[PharmaGuard] Single explain failed for ${input.drug}:`, err);
+    return FALLBACK_EXPLANATION;
+  }
+}

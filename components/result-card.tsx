@@ -8,15 +8,9 @@ import {
 import { Badge }    from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { cn }        from "@/lib/utils";
 import type { AnalysisResult, RiskLabel, Phenotype } from "@/lib/types";
-import { CheckCircle2, AlertTriangle, XCircle, MinusCircle, HelpCircle, Sparkles } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, MinusCircle, HelpCircle, Sparkles, Brain, Stethoscope, BookOpen, Zap } from "lucide-react";
 
 // ─── Risk visual system ───────────────────────────────────────────────────────
 
@@ -251,61 +245,99 @@ export function ResultCard({ result, isLoadingExplain = false }: ResultCardProps
 
         {/* ── AI Explanation ── */}
         {isLoadingExplain ? (
-          <div className="space-y-2 pt-1 rounded-lg bg-muted/40 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Skeleton className="h-4 w-4 rounded" />
-              <Skeleton className="h-3.5 w-32" />
+          <div className="rounded-xl border border-primary/15 bg-gradient-to-br from-accent/50 to-muted/30 p-4 space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10">
+                <Skeleton className="h-3.5 w-3.5 rounded" />
+              </div>
+              <Skeleton className="h-3.5 w-40" />
             </div>
-            <Skeleton className="h-3.5 w-full" />
-            <Skeleton className="h-3.5 w-5/6" />
-            <Skeleton className="h-3.5 w-4/6" />
+            <div className="grid gap-2.5">
+              <div className="rounded-lg bg-card/60 border border-border/50 p-3 space-y-1.5">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-4/5" />
+              </div>
+              <div className="rounded-lg bg-card/60 border border-border/50 p-3 space-y-1.5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-3/4" />
+              </div>
+            </div>
           </div>
         ) : llm_generated_explanation ? (
-          <Accordion type="single" collapsible>
-            <AccordionItem value="explanation" className="border-0">
-              <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline group">
-                <span className="flex items-center gap-2">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent">
-                    <Sparkles className="h-3 w-3 text-primary" />
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="rounded-xl border border-primary/15 bg-gradient-to-br from-accent/50 to-muted/30 p-4 space-y-3"
+          >
+            {/* Header */}
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest text-primary">
+                AI Clinical Explanation
+              </span>
+            </div>
+
+            {/* Summary — prominent callout */}
+            <div className="rounded-lg bg-card border border-border px-4 py-3">
+              <p className="text-sm text-foreground leading-relaxed font-medium">
+                {llm_generated_explanation.summary}
+              </p>
+            </div>
+
+            {/* Mechanism + Recommendation cards */}
+            <div className="grid gap-2.5">
+              <div className="rounded-lg bg-card/80 border border-border/60 p-3.5">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-100">
+                    <Brain className="h-3 w-3 text-violet-600" />
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+                    Molecular Mechanism
                   </span>
-                  AI Clinical Explanation
-                </span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="rounded-lg bg-muted/30 border border-border p-4 space-y-4 text-sm">
-                  <p className="text-muted-foreground leading-relaxed">
-                    {llm_generated_explanation.summary}
-                  </p>
-                  <div>
-                    <p className="font-semibold text-foreground mb-1.5 text-xs uppercase tracking-wide">
-                      Mechanism
-                    </p>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {llm_generated_explanation.mechanism}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground mb-1.5 text-xs uppercase tracking-wide">
-                      Clinical Recommendation
-                    </p>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {llm_generated_explanation.recommendation}
-                    </p>
-                  </div>
-                  {llm_generated_explanation.citations && (
-                    <div className="border-t border-border pt-3">
-                      <p className="font-semibold text-foreground mb-1.5 text-xs uppercase tracking-wide">
-                        Citations
-                      </p>
-                      <p className="text-muted-foreground text-xs leading-relaxed font-mono">
-                        {llm_generated_explanation.citations}
-                      </p>
-                    </div>
-                  )}
                 </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+                <p className="text-xs text-muted-foreground leading-relaxed pl-7">
+                  {llm_generated_explanation.mechanism}
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-card/80 border border-border/60 p-3.5">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-100">
+                    <Stethoscope className="h-3 w-3 text-blue-600" />
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+                    Clinical Guidance
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed pl-7">
+                  {llm_generated_explanation.recommendation}
+                </p>
+              </div>
+            </div>
+
+            {/* Citations footer */}
+            {llm_generated_explanation.citations && (
+              <div className="flex items-start gap-2 pt-1">
+                <BookOpen className="h-3.5 w-3.5 text-muted-foreground/50 mt-0.5 shrink-0" />
+                <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                  {llm_generated_explanation.citations}
+                </p>
+              </div>
+            )}
+
+            {/* Powered-by tag */}
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <Zap className="h-2.5 w-2.5 text-muted-foreground/30" />
+              <span className="text-[9px] text-muted-foreground/30 tracking-wide">
+                Generated by AI — verify with clinical pharmacist
+              </span>
+            </div>
+          </motion.div>
         ) : null}
 
       </CardContent>

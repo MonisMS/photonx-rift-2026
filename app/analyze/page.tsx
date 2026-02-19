@@ -1,6 +1,6 @@
 "use client";
 
-import { useState }         from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link                  from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,6 +35,7 @@ import {
   Shield,
   Lock,
   CircleCheck,
+  Trash2,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -105,6 +106,20 @@ function PhaseIndicator({ phase }: { phase: Phase }) {
   );
 }
 
+// ─── localStorage key ─────────────────────────────────────────────────────────
+
+const STORAGE_KEY = "pharmaguard-session";
+
+interface StoredSession {
+  patientId:     string;
+  variants:      VCFVariant[];
+  selectedDrugs: SupportedDrug[];
+  cpicResults:   CPICResult[];
+  fullResults:   AnalysisResult[];
+  analysisMeta:  { cpicMs: number; totalMs: number; genesAnalyzed: string[] } | null;
+  savedAt:       number;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AnalyzePage() {
@@ -118,6 +133,68 @@ export default function AnalyzePage() {
   const [error,       setError]       = useState<string | null>(null);
   const [copied,      setCopied]      = useState(false);
   const [analysisMeta, setAnalysisMeta] = useState<{ cpicMs: number; totalMs: number; genesAnalyzed: string[] } | null>(null);
+  const [hydrated,    setHydrated]    = useState(false);
+
+  // ── Hydrate from localStorage on mount ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const session: StoredSession = JSON.parse(raw);
+        // Only restore sessions less than 24 hours old
+        if (Date.now() - session.savedAt < 24 * 60 * 60 * 1000) {
+          setPatientId(session.patientId);
+          setVariants(session.variants);
+          setSelectedDrugs(session.selectedDrugs);
+          setCpicResults(session.cpicResults);
+          setFullResults(session.fullResults);
+          setAnalysisMeta(session.analysisMeta);
+          if (session.cpicResults.length > 0) setPhase("done");
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
+    } catch {
+      // Corrupted data — ignore
+    }
+    setHydrated(true);
+  }, []);
+
+  // ── Persist to localStorage when results change ──
+  const saveSession = useCallback(() => {
+    if (!hydrated) return;
+    try {
+      const session: StoredSession = {
+        patientId,
+        variants,
+        selectedDrugs,
+        cpicResults,
+        fullResults,
+        analysisMeta,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    } catch {
+      // Storage full or unavailable — ignore
+    }
+  }, [hydrated, patientId, variants, selectedDrugs, cpicResults, fullResults, analysisMeta]);
+
+  useEffect(() => {
+    saveSession();
+  }, [saveSession]);
+
+  // ── Clear session ──
+  function clearSession() {
+    localStorage.removeItem(STORAGE_KEY);
+    setVariants([]);
+    setPatientId("");
+    setSelectedDrugs([]);
+    setCpicResults([]);
+    setFullResults([]);
+    setAnalysisMeta(null);
+    setError(null);
+    setPhase("idle");
+  }
 
   const canAnalyze    = variants.length > 0 && selectedDrugs.length > 0 && patientId.trim().length > 0;
   const isLoading     = phase === "analyzing" || phase === "explaining";
@@ -151,16 +228,27 @@ export default function AnalyzePage() {
     setCpicResults(cpic);
     setPhase("explaining");
 
-    const explainRes = await fetch("/api/explain", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ results: cpic }),
+    // Fire parallel per-drug AI calls — each card fills independently
+    const pending = (cpic as CPICResult[]).map(async (cpicResult: CPICResult) => {
+      try {
+        const res = await fetch("/api/explain-single", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ result: cpicResult }),
+        });
+        if (res.ok) {
+          const { result: full } = await res.json();
+          setFullResults((prev) => {
+            const updated = prev.filter((r) => r.drug !== full.drug);
+            return [...updated, full];
+          });
+        }
+      } catch {
+        // Individual failure is fine — card stays without explanation
+      }
     });
 
-    if (explainRes.ok) {
-      const { results: full } = await explainRes.json();
-      setFullResults(full);
-    }
+    await Promise.all(pending);
 
     const totalMs = Math.round(performance.now() - t0);
     setAnalysisMeta({ cpicMs, totalMs, genesAnalyzed });
@@ -215,9 +303,22 @@ export default function AnalyzePage() {
             </div>
           </div>
 
-          <Badge variant="secondary" className="text-xs font-medium">
-            Patient Analysis
-          </Badge>
+          <div className="flex items-center gap-2">
+            {(cpicResults.length > 0 || variants.length > 0) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSession}
+                className="gap-1.5 text-xs text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">New Analysis</span>
+              </Button>
+            )}
+            <Badge variant="secondary" className="text-xs font-medium">
+              Patient Analysis
+            </Badge>
+          </div>
         </div>
       </header>
 
@@ -689,16 +790,17 @@ Phase 1 — POST /api/analyze (deterministic, <200ms)
   ├── Confidence: 0.95 (both alleles) / 0.70 (one) / 0.30 (none)
   └── Returns CPICResult[] — zero AI calls
 
-Phase 2 — POST /api/explain (AI, ~2-5s)
-  ├── lib/gemini.ts     → builds ONE batched prompt for all drugs
+Phase 2 — POST /api/explain-single × N (AI, parallel)
+  ├── Browser fires N parallel requests (one per drug)
+  ├── lib/gemini.ts     → focused single-drug prompt
   ├── lib/ai.ts         → waterfall: Gemini → OpenRouter → OpenAI
-  └── Returns LLM explanation with mechanism + citations
+  └── Each card fills independently as its response arrives
 
 Key Design Decisions:
   • Risk prediction is 100% deterministic (CPIC tables)
   • AI is used ONLY for explanation generation
   • VCF never leaves the browser — privacy by design
-  • Single API call regardless of drug count
+  • Parallel per-drug AI calls → first result in ~2s
   • Provider waterfall ensures 99%+ uptime`}</pre>
                 </div>
               </AccordionContent>
