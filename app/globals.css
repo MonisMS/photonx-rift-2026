@@ -269,6 +269,55 @@
       0 0 0 1px oklch(0.65 0.14 184.5 / 0.18),
       0 0 32px oklch(0.65 0.14 184.5 / 0.07);
   }
+
+  /* ── Noise texture overlay (subtle depth for flat sections) ─────────────── */
+  .bg-noise {
+    position: relative;
+  }
+  .bg-noise::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: overlay;
+  }
+
+  /* ── Section gradient border (top edge glow between blocks) ────────────── */
+  .section-border-top {
+    position: relative;
+  }
+  .section-border-top::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(1 0 0 / 0.08) 30%,
+      oklch(1 0 0 / 0.12) 50%,
+      oklch(1 0 0 / 0.08) 70%,
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  /* ── Section gradient border variant for light sections ────────────────── */
+  .section-border-top-light::after {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(0 0 0 / 0.05) 30%,
+      oklch(0 0 0 / 0.08) 50%,
+      oklch(0 0 0 / 0.05) 70%,
+      transparent
+    );
+  }
 }
 
 /* ─── Marquee keyframe ──────────────────────────────────────────────────────── */

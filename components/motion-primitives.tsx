@@ -1,87 +1,79 @@
 "use client";
 
-import { motion, useReducedMotion, type Variants, type HTMLMotionProps } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import type { ReactNode } from "react";
 
-// ─── Animation Variants ───────────────────────────────────────────────────────
+// ─── Shared constants ─────────────────────────────────────────────────────────
 
-const springTransition = { duration: 0.55, ease: [0.22, 1, 0.36, 1] } as const;
-const fastTransition    = { duration: 0.35, ease: [0.22, 1, 0.36, 1] } as const;
+const EASE = [0.16, 1, 0.3, 1] as const;
+const VIEWPORT = { once: true, margin: "-60px" } as const;
+
+// ─── Variants ─────────────────────────────────────────────────────────────────
 
 export const fadeInUpVariants: Variants = {
-  hidden:  { opacity: 0, y: 18 },
-  visible: { opacity: 1, y: 0,   transition: springTransition },
+  hidden:  { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
 };
 
 export const fadeInVariants: Variants = {
   hidden:  { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.45, ease: "easeOut" } },
-};
-
-export const fadeInDownVariants: Variants = {
-  hidden:  { opacity: 0, y: -14 },
-  visible: { opacity: 1, y: 0,   transition: springTransition },
-};
-
-export const scaleInVariants: Variants = {
-  hidden:  { opacity: 0, scale: 0.95 },
-  visible: { opacity: 1, scale: 1,    transition: springTransition },
-};
-
-export const slideInLeftVariants: Variants = {
-  hidden:  { opacity: 0, x: -20 },
-  visible: { opacity: 1, x: 0,  transition: springTransition },
+  visible: { opacity: 1 },
 };
 
 export const staggerContainerVariants: Variants = {
   hidden:  {},
-  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
 };
 
-// ─── Viewport defaults ────────────────────────────────────────────────────────
+export const staggerItemVariants: Variants = {
+  hidden:  { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
+};
 
-const defaultViewport = { once: true, margin: "0px" } as const;
-
-// ─── Shared prop interface ────────────────────────────────────────────────────
+// ─── Shared prop interface ───────────────────────────────────────────────────
 
 interface AnimProps {
   children: ReactNode;
   className?: string;
   delay?: number;
+  as?: "div" | "p" | "span";
 }
 
-// ─── FadeIn (scroll-triggered, from below) ────────────────────────────────────
+// ─── FadeInUp — scroll-triggered, slides up from y:24 ────────────────────────
+
+export function FadeInUp({ children, className, delay = 0, as = "div" }: AnimProps) {
+  const shouldReduce = useReducedMotion();
+  if (shouldReduce) return <div className={className}>{children}</div>;
+
+  const Tag = motion[as];
+
+  return (
+    <Tag
+      initial="hidden"
+      whileInView="visible"
+      viewport={VIEWPORT}
+      variants={fadeInUpVariants}
+      transition={{ duration: 0.6, ease: EASE, delay }}
+      className={className}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+// ─── FadeIn — scroll-triggered, opacity only ─────────────────────────────────
 
 export function FadeIn({ children, className, delay = 0 }: AnimProps) {
   const shouldReduce = useReducedMotion();
-  
-  if (shouldReduce === true) return <div className={className}>{children}</div>;
+  if (shouldReduce) return <div className={className}>{children}</div>;
 
   return (
     <motion.div
-      variants={fadeInUpVariants}
+      initial="hidden"
       whileInView="visible"
-      viewport={defaultViewport}
-      {...(delay ? { transition: { ...springTransition, delay } } : {})}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-// ─── FadeInSection (simple fade, no Y movement) ───────────────────────────────
-
-export function FadeInSimple({ children, className, delay = 0 }: AnimProps) {
-  const shouldReduce = useReducedMotion();
-  if (shouldReduce === true) return <div className={className}>{children}</div>;
-
-  return (
-    <motion.div
+      viewport={VIEWPORT}
       variants={fadeInVariants}
-      whileInView="visible"
-      viewport={defaultViewport}
-      {...(delay ? { transition: { duration: 0.45, ease: "easeOut", delay } } : {})}
+      transition={{ duration: 0.5, ease: EASE, delay }}
       className={className}
     >
       {children}
@@ -89,17 +81,29 @@ export function FadeInSimple({ children, className, delay = 0 }: AnimProps) {
   );
 }
 
-// ─── StaggerContainer ─────────────────────────────────────────────────────────
+// ─── StaggerContainer — orchestrates staggered children ──────────────────────
 
-export function StaggerContainer({ children, className }: { children: ReactNode; className?: string }) {
+export function StaggerContainer({
+  children,
+  className,
+  stagger = 0.1,
+}: {
+  children: ReactNode;
+  className?: string;
+  stagger?: number;
+}) {
   const shouldReduce = useReducedMotion();
-  if (shouldReduce === true) return <div className={className}>{children}</div>;
+  if (shouldReduce) return <div className={className}>{children}</div>;
 
   return (
     <motion.div
-      variants={staggerContainerVariants}
+      initial="hidden"
       whileInView="visible"
-      viewport={defaultViewport}
+      viewport={VIEWPORT}
+      variants={{
+        hidden: {},
+        visible: { transition: { staggerChildren: stagger, delayChildren: 0.05 } },
+      }}
       className={className}
     >
       {children}
@@ -107,28 +111,16 @@ export function StaggerContainer({ children, className }: { children: ReactNode;
   );
 }
 
-// ─── StaggerItem (must be a child of StaggerContainer) ───────────────────────
+// ─── StaggerItem — child of StaggerContainer ────────────────────────────────
 
 export function StaggerItem({ children, className }: { children: ReactNode; className?: string }) {
   const shouldReduce = useReducedMotion();
   if (shouldReduce) return <div className={className}>{children}</div>;
 
   return (
-    <motion.div variants={fadeInUpVariants} className={className}>
-      {children}
-    </motion.div>
-  );
-}
-
-// ─── HoverLift (wrap a card/element for subtle hover lift) ───────────────────
-
-export function HoverLift({ children, className }: { children: ReactNode; className?: string }) {
-  const shouldReduce = useReducedMotion();
-  if (shouldReduce) return <div className={className}>{children}</div>;
-
-  return (
     <motion.div
-      whileHover={{ y: -3, transition: { duration: 0.2, ease: "easeOut" } }}
+      variants={staggerItemVariants}
+      transition={{ duration: 0.6, ease: EASE }}
       className={className}
     >
       {children}
@@ -136,61 +128,26 @@ export function HoverLift({ children, className }: { children: ReactNode; classN
   );
 }
 
-// ─── MotionButton (press feedback) ───────────────────────────────────────────
+// ─── HoverLift — subtle hover elevation (transform only) ────────────────────
 
-export function MotionButton({
+export function HoverLift({
   children,
   className,
-  ...props
-}: HTMLMotionProps<"div"> & { children: ReactNode; className?: string }) {
-  const shouldReduce = useReducedMotion();
-  if (shouldReduce) return <div className={className} {...(props as React.HTMLAttributes<HTMLDivElement>)}>{children}</div>;
-
-  return (
-    <motion.div
-      whileTap={{ scale: 0.97, transition: fastTransition }}
-      className={className}
-      {...props}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-// ─── ScaleIn (scale reveal on scroll) ────────────────────────────────────────
-
-export function ScaleIn({ children, className, delay = 0 }: AnimProps) {
+  y = -4,
+}: {
+  children: ReactNode;
+  className?: string;
+  y?: number;
+}) {
   const shouldReduce = useReducedMotion();
   if (shouldReduce) return <div className={className}>{children}</div>;
 
   return (
     <motion.div
-      variants={scaleInVariants}
-      whileInView="visible"
-      viewport={defaultViewport}
-      {...(delay ? { transition: { ...springTransition, delay } } : {})}
+      whileHover={{ y, transition: { duration: 0.25, ease: EASE } }}
       className={className}
     >
       {children}
     </motion.div>
-  );
-}
-
-// ─── AnimatedNumber (count up on mount) ──────────────────────────────────────
-// Simple span that just fades in — actual count-up would need JS
-
-export function AnimatedStat({ children, className }: { children: ReactNode; className?: string }) {
-  const shouldReduce = useReducedMotion();
-  if (shouldReduce) return <span className={className}>{children}</span>;
-
-  return (
-    <motion.span
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className={className}
-    >
-      {children}
-    </motion.span>
   );
 }
