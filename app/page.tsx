@@ -423,110 +423,173 @@ function TopNav() {
 // ─── Hero (dark forest green, white text) ──────────────────────────────────────
 
 function HeroSection() {
+  /* cinematic ease curve */
+  const ease = [0.16, 1, 0.3, 1] as const;
+
   return (
     <section
       className="relative min-h-screen flex items-center pt-24 pb-0 overflow-hidden"
       style={{ background: "linear-gradient(175deg, var(--pg-hero) 0%, var(--pg-hero-mid) 100%)" }}
     >
-      {/* DNA helix line art (scientific texture) */}
+      {/* ── Living background layers ─────────────────────────────────── */}
+
+      {/* DNA helix — slowly rising */}
       <div className="bg-dna-helix absolute inset-0 pointer-events-none" aria-hidden />
 
-      {/* Subtle white dot grid — reduced for depth */}
+      {/* Dot grid — slow diagonal drift */}
       <div className="bg-dot-grid absolute inset-0 pointer-events-none opacity-60" aria-hidden />
 
-      {/* Soft radial glow from top-center */}
+      {/* Primary glow orb — breathing, top center */}
       <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[60vh] pointer-events-none"
+        className="hero-glow-orb absolute top-0 left-1/2 w-[80vw] h-[65vh] pointer-events-none"
         style={{
-          background: "radial-gradient(ellipse 70% 55% at 50% -5%, oklch(0.35 0.09 170 / 0.50), transparent 70%)",
+          background: "radial-gradient(ellipse 70% 55% at 50% -5%, oklch(0.38 0.10 170 / 0.55), transparent 70%)",
         }}
         aria-hidden
       />
 
-      {/* Secondary glow — bottom right */}
+      {/* Secondary glow orb — drifting, bottom right */}
       <div
-        className="absolute bottom-0 right-0 w-[50vw] h-[40vh] pointer-events-none"
+        className="hero-glow-orb-2 absolute bottom-0 right-0 w-[55vw] h-[45vh] pointer-events-none"
         style={{
-          background: "radial-gradient(ellipse 80% 80% at 80% 100%, oklch(0.30 0.08 180 / 0.30), transparent 70%)",
+          background: "radial-gradient(ellipse 80% 80% at 75% 100%, oklch(0.32 0.09 180 / 0.35), transparent 70%)",
         }}
         aria-hidden
       />
 
+      {/* ── Content ──────────────────────────────────────────────────── */}
       <div className="mx-auto max-w-5xl px-5 text-center w-full pb-28">
 
-        {/* Eyebrow badge */}
-        <FadeIn>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] backdrop-blur-sm px-4 py-1.5 mb-8">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80 animate-pulse" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-white/70">
+        {/* Eyebrow badge — clip-path reveal */}
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95, filter: "blur(10px)" }}
+          animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+          transition={{ duration: 0.9, ease }}
+        >
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-1.5 mb-8">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-white/80">
               CPIC-Aligned Clinical Decision Support
             </span>
           </div>
-        </FadeIn>
+        </motion.div>
 
-        {/* Headline */}
-        <FadeIn delay={0.05}>
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-[5.5rem] mb-6 leading-[1.04] text-white">
-            Genomic-Guided
-            <br />
-            <span className="hero-gradient-text">Prescribing</span>
-          </h1>
-        </FadeIn>
+        {/* Headline — line 1 */}
+        <div className="overflow-hidden mb-1">
+          <motion.div
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: "0%", opacity: 1 }}
+            transition={{ duration: 0.9, delay: 0.15, ease }}
+          >
+            <h1 className="text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-[5.5rem] leading-[1.04] text-white">
+              Genomic-Guided
+            </h1>
+          </motion.div>
+        </div>
 
-        {/* Sub-headline — scientific authority */}
-        <FadeIn delay={0.08}>
-          <p className="mx-auto max-w-2xl text-xl sm:text-2xl font-medium text-white/50 mb-6 tracking-tight">
-            Powered by CPIC Clinical Evidence
-          </p>
-        </FadeIn>
+        {/* Headline — line 2 (staggered, gradient text) */}
+        <div className="overflow-hidden mb-6">
+          <motion.div
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: "0%", opacity: 1 }}
+            transition={{ duration: 0.9, delay: 0.28, ease }}
+          >
+            <span className="hero-gradient-text text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-[5.5rem] leading-[1.04]">
+              Prescribing
+            </span>
+          </motion.div>
+        </div>
+
+        {/* Sub-headline — fade up after headline lands */}
+        <motion.p
+          initial={{ opacity: 0, y: 20, filter: "blur(6px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ duration: 0.8, delay: 0.5, ease }}
+          className="mx-auto max-w-2xl text-xl sm:text-2xl font-medium text-white/65 mb-6 tracking-tight"
+        >
+          Powered by CPIC Clinical Evidence
+        </motion.p>
 
         {/* Subtext */}
-        <FadeIn delay={0.1}>
-          <p className="mx-auto max-w-2xl text-base text-white/55 leading-relaxed mb-10">
-            Upload a patient&apos;s VCF file and receive deterministic, guideline-aligned
-            pharmacogenomic risk classification — with transparent AI-generated clinical explanations
-            grounded in peer-reviewed CPIC recommendations.
-          </p>
-        </FadeIn>
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.65, ease }}
+          className="mx-auto max-w-xl text-sm sm:text-base text-white/60 leading-relaxed mb-10"
+        >
+          Deterministic pharmacogenomic risk classification from VCF
+          variants — with transparent, AI-narrated clinical explanations.
+        </motion.p>
 
         {/* CTAs */}
-        <FadeIn delay={0.15}>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
-            <Button
-              asChild
-              size="lg"
-              className="px-8 h-12 text-base bg-white hover:bg-white/95 font-semibold shadow-card-lg"
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.8, ease }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16"
+        >
+          {/* Primary CTA — dominant with glow + micro-motion */}
+          <motion.div
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          >
+            <Link
+              href="/analyze"
+              className="group relative inline-flex items-center gap-2 rounded-full px-8 h-12 text-base font-semibold bg-white shadow-card-lg overflow-hidden"
               style={{ color: "var(--pg-hero)" }}
             >
-              <Link href="/analyze">
+              {/* Glow ring on hover */}
+              <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ boxShadow: "0 0 28px 4px oklch(0.65 0.14 170 / 0.35)" }} />
+              {/* Shimmer sweep */}
+              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+              <span className="relative flex items-center gap-2">
                 Launch Clinical Analysis
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="ghost"
-              className="px-8 h-12 text-base text-white/70 border border-white/20 hover:bg-white/[0.07] hover:text-white"
-            >
-              <a href="#how-it-works">View Methodology</a>
-            </Button>
-          </div>
-        </FadeIn>
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+          </motion.div>
 
-        {/* Stats — frosted glass panels */}
-        <StaggerContainer className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-white/10 bg-white/[0.04] mx-auto max-w-2xl">
-          {STATS.map((stat) => (
-            <StaggerItem key={stat.label}>
-              <div className="bg-white/[0.04] backdrop-blur-sm px-6 py-5 text-center">
-                <AnimatedStat className="block text-2xl font-bold text-white tabular-nums">
-                  {stat.value}
-                </AnimatedStat>
-                <span className="mt-1 block text-[11px] text-white/45 uppercase tracking-wider">{stat.label}</span>
-              </div>
-            </StaggerItem>
+          {/* Secondary CTA */}
+          <motion.div
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          >
+            <a
+              href="#how-it-works"
+              className="inline-flex items-center rounded-full px-8 h-12 text-base text-white/70 border border-white/20 hover:bg-white/[0.08] hover:text-white hover:border-white/30 transition-all duration-200"
+            >
+              View Methodology
+            </a>
+          </motion.div>
+        </motion.div>
+
+        {/* Stats — interactive glass chips */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 1.0, ease }}
+          className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mx-auto"
+        >
+          {STATS.map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 16, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 1.05 + i * 0.1, ease }}
+              whileHover={{ scale: 1.06, y: -2, backgroundColor: "rgba(255,255,255,0.12)" }}
+              className="flex items-baseline gap-2.5 rounded-full border border-white/12 bg-white/[0.06] px-5 py-2.5 cursor-default transition-colors duration-200"
+            >
+              <span className="text-xl sm:text-2xl font-bold text-white tabular-nums tracking-tight">
+                {stat.value}
+              </span>
+              <span className="text-[11px] text-white/55 uppercase tracking-wider font-medium">
+                {stat.label}
+              </span>
+            </motion.div>
           ))}
-        </StaggerContainer>
+        </motion.div>
       </div>
 
       {/* Bottom gradient bridge: hero green → trust green */}
@@ -549,13 +612,13 @@ function TrustBar() {
         style={{ background: "var(--pg-trust)" }}
       >
         <div className="mx-auto max-w-5xl px-5">
-          <p className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/40">
+          <p className="mb-4 text-center text-[10px] font-semibold uppercase tracking-widest text-white/55">
             Grounded in peer-reviewed clinical pharmacogenomics
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10">
             {TRUST_ITEMS.map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-2 text-sm text-white/70">
-                <Icon className="h-4 w-4 text-white/45 shrink-0" />
+              <div key={label} className="flex items-center gap-2 text-sm text-white/75">
+                <Icon className="h-4 w-4 text-emerald-400/70 shrink-0" />
                 <span>{label}</span>
               </div>
             ))}
@@ -573,16 +636,16 @@ function HowItWorksSection() {
     <section
       id="how-it-works"
       className="py-24 md:py-32"
-      style={{ background: "var(--pg-mid)" }}
+      style={{ background: "var(--pg-deep)" }}
     >
       <div className="mx-auto max-w-5xl px-5">
 
         <FadeIn className="text-center mb-16 md:mb-20">
-          <p className="eyebrow mb-3">Methodology</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80 mb-3">Methodology</p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-white">
             From VCF variant file to clinical risk report<br className="hidden sm:block" /> in three deterministic steps
           </h2>
-          <p className="mx-auto max-w-xl text-muted-foreground">
+          <p className="mx-auto max-w-xl text-white/60">
             No account required. No data uploaded. Fully reproducible results.
           </p>
         </FadeIn>
@@ -590,32 +653,32 @@ function HowItWorksSection() {
         <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {STEPS.map((step, i) => (
             <StaggerItem key={i}>
-              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-accent/60 border border-border shadow-card">
+              <div className="relative flex flex-col items-center text-center p-6 rounded-2xl bg-white/10 border border-white/15">
                 {/* Connector line */}
                 {i < STEPS.length - 1 && (
-                  <div className="hidden md:block absolute top-10 left-[calc(50%+48px)] right-[-24px] h-px bg-gradient-to-r from-border to-transparent" />
+                  <div className="hidden md:block absolute top-10 left-[calc(50%+48px)] right-[-24px] h-px bg-gradient-to-r from-white/20 to-transparent" />
                 )}
 
                 {/* Icon circle */}
                 <div className="relative mb-6">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-card-md border border-border">
-                    <step.icon className="h-9 w-9 text-primary" />
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 border border-white/15">
+                    <step.icon className="h-9 w-9 text-emerald-400" />
                   </div>
-                  <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground shadow-sm">
+                  <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400 text-[10px] font-bold text-emerald-950 shadow-sm">
                     {i + 1}
                   </span>
                 </div>
 
-                <div className="eyebrow mb-2">{step.step}</div>
-                <h3 className="text-lg font-semibold mb-3">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{step.body}</p>
+                <div className="text-xs font-semibold uppercase tracking-widest text-emerald-400/80 mb-2">{step.step}</div>
+                <h3 className="text-lg font-semibold mb-3 text-white">{step.title}</h3>
+                <p className="text-sm text-white/65 leading-relaxed">{step.body}</p>
               </div>
             </StaggerItem>
           ))}
         </StaggerContainer>
 
         <FadeIn className="mt-14 text-center" delay={0.1}>
-          <Button asChild size="lg" className="gap-2">
+          <Button asChild size="lg" className="gap-2 bg-white hover:bg-white/90 rounded-full shadow-card-lg" style={{ color: "var(--pg-hero)" }}>
             <Link href="/analyze">
               Launch Clinical Analysis
               <ArrowRight className="h-4 w-4" />
@@ -634,16 +697,16 @@ function FeaturesSection() {
     <section
       id="features"
       className="py-24 md:py-32"
-      style={{ background: "var(--pg-light)" }}
+      style={{ background: "var(--pg-mid)" }}
     >
       <div className="mx-auto max-w-5xl px-5">
 
         <FadeIn className="text-center mb-16">
-          <p className="eyebrow mb-3">Clinical Architecture</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/70 mb-3">Clinical Architecture</p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-white">
             Evidence-based infrastructure for pharmacogenomic decision support
           </h2>
-          <p className="mx-auto max-w-xl text-muted-foreground">
+          <p className="mx-auto max-w-xl text-white/65">
             Every component is designed to preserve clinical rigor, ensure auditability,
             and surface actionable pharmacogenomic intelligence at the point of care.
           </p>
@@ -653,12 +716,12 @@ function FeaturesSection() {
           {FEATURES.map((feat) => (
             <StaggerItem key={feat.title}>
               <HoverLift className="h-full">
-                <div className="h-full rounded-xl border border-border bg-white p-6 shadow-card transition-shadow hover:shadow-card-md">
-                  <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
-                    <feat.icon className="h-5 w-5 text-primary" />
+                <div className="h-full rounded-xl border border-white/15 bg-white/10 p-6 transition-all hover:bg-white/15">
+                  <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">
+                    <feat.icon className="h-5 w-5 text-emerald-400" />
                   </div>
-                  <h3 className="font-semibold mb-2">{feat.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{feat.body}</p>
+                  <h3 className="font-semibold mb-2 text-white">{feat.title}</h3>
+                  <p className="text-sm text-white/65 leading-relaxed">{feat.body}</p>
                 </div>
               </HoverLift>
             </StaggerItem>
@@ -685,29 +748,29 @@ function SecuritySection() {
     <section
       id="security"
       className="py-24 md:py-32"
-      style={{ background: "var(--pg-lighter)" }}
+      style={{ background: "var(--pg-light)" }}
     >
       <div className="mx-auto max-w-5xl px-5">
-        <div className="rounded-2xl border border-border bg-white shadow-card-md overflow-hidden">
+        <div className="rounded-2xl border border-white/15 bg-white/10 overflow-hidden">
           <div className="grid md:grid-cols-2 gap-0">
 
             {/* Text column */}
             <div className="p-8 md:p-12">
               <FadeIn>
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-accent mb-6">
-                  <Lock className="h-6 w-6 text-primary" />
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 mb-6">
+                  <Lock className="h-6 w-6 text-emerald-400" />
                 </div>
-                <p className="eyebrow mb-3">Transparency &amp; Data Sovereignty</p>
-                <h2 className="text-2xl font-bold tracking-tight mb-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400/90 mb-3">Transparency &amp; Data Sovereignty</p>
+                <h2 className="text-2xl font-bold tracking-tight mb-4 text-white">
                   Auditable architecture. Zero genomic data exposure.
                 </h2>
-                <p className="text-muted-foreground leading-relaxed mb-6 text-sm">
+                <p className="text-white/70 leading-relaxed mb-6 text-sm">
                   Genomic data is among the most sensitive clinical information in existence.
                   PharmaGuard is architected so that raw variant data never leaves the
                   clinician&apos;s browser — and risk classification is deterministic, not probabilistic.
                   Every output can be traced from variant to diplotype to phenotype to recommendation.
                 </p>
-                <p className="text-xs text-muted-foreground/70 border-t border-border pt-4">
+                <p className="text-xs text-white/45 border-t border-white/15 pt-4">
                   PharmaGuard is built for research and clinical decision support. It is not
                   a regulated medical device. Always confirm reports with a qualified clinician.
                 </p>
@@ -715,14 +778,14 @@ function SecuritySection() {
             </div>
 
             {/* Principles column */}
-            <div className="bg-accent/40 p-8 md:p-12 border-t md:border-t-0 md:border-l border-border">
+            <div className="bg-white/[0.06] p-8 md:p-12 border-t md:border-t-0 md:border-l border-white/15">
               <FadeIn>
-                <p className="text-sm font-semibold mb-6 text-foreground">Core privacy principles</p>
+                <p className="text-sm font-semibold mb-6 text-white/90">Core privacy principles</p>
                 <ul className="space-y-4">
                   {PRINCIPLES.map((p, i) => (
                     <li key={i} className="flex items-start gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                      <span className="text-sm text-muted-foreground">{p}</span>
+                      <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                      <span className="text-sm text-white/70">{p}</span>
                     </li>
                   ))}
                 </ul>
@@ -748,10 +811,10 @@ function TestimonialsSection() {
       <div className="mx-auto max-w-5xl px-5">
         <FadeIn className="text-center mb-14">
           <p className="eyebrow mb-3">Clinical Validation</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-foreground">
             Evaluated by pharmacogenomics practitioners
           </h2>
-          <p className="mx-auto max-w-lg text-muted-foreground">
+          <p className="mx-auto max-w-lg text-foreground/60">
             Clinical pharmacologists, pharmacists, and PGx program coordinators
             assess PharmaGuard against real-world prescribing workflows.
           </p>
@@ -779,7 +842,7 @@ function TestimonialsSection() {
             {marqueeItems.map((t, i) => (
               <div
                 key={i}
-                className="w-80 shrink-0 rounded-xl border border-border bg-white p-6 shadow-card flex flex-col"
+                className="w-80 shrink-0 rounded-xl border border-border/50 bg-white/80 backdrop-blur-sm p-6 shadow-card flex flex-col"
               >
                 {/* Stars */}
                 <div className="flex gap-0.5 mb-4">
@@ -789,18 +852,18 @@ function TestimonialsSection() {
                 </div>
 
                 {/* Quote */}
-                <blockquote className="text-sm text-muted-foreground leading-relaxed flex-1 mb-6">
+                <blockquote className="text-sm text-foreground/60 leading-relaxed flex-1 mb-6">
                   &ldquo;{t.quote}&rdquo;
                 </blockquote>
 
                 {/* Author */}
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-semibold text-primary shrink-0">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary shrink-0">
                     {t.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium leading-none">{t.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{t.role} · {t.org}</p>
+                    <p className="text-sm font-medium leading-none text-foreground">{t.name}</p>
+                    <p className="mt-1 text-xs text-foreground/50">{t.role} · {t.org}</p>
                   </div>
                 </div>
               </div>
@@ -824,10 +887,10 @@ function FAQSection() {
       <div className="mx-auto max-w-3xl px-5">
         <FadeIn className="text-center mb-14">
           <p className="eyebrow mb-3">Technical FAQ</p>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-foreground">
             Frequently asked questions
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-foreground/60">
             Technical and clinical context for pharmacogenomic analysis with PharmaGuard.
           </p>
         </FadeIn>
@@ -838,7 +901,7 @@ function FAQSection() {
               <AccordionItem
                 key={i}
                 value={`faq-${i}`}
-                className="rounded-xl border border-border bg-white px-5 shadow-card data-[state=open]:shadow-card-md transition-shadow"
+                className="rounded-xl border border-border/50 bg-white/80 backdrop-blur-sm px-5 shadow-card data-[state=open]:shadow-card-md transition-shadow"
               >
                 <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline text-left">
                   {faq.q}
@@ -873,13 +936,13 @@ function CTASection() {
             <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-white/[0.03]" aria-hidden />
 
             <div className="relative">
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/65 mb-4">
                 Begin genomic-guided prescribing
               </p>
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl mb-4">
                 Evidence-based risk classification.<br className="hidden sm:block" /> Available now.
               </h2>
-              <p className="mx-auto max-w-lg text-white/55 text-sm mb-8 leading-relaxed">
+              <p className="mx-auto max-w-lg text-white/70 text-sm mb-8 leading-relaxed">
                 Upload a patient VCF file, define a drug panel, and receive a complete
                 pharmacogenomic risk report — deterministic CPIC classification with
                 transparent AI clinical narration.
@@ -1020,16 +1083,40 @@ export default function LandingPage() {
       <main className="flex-1">
         <HeroSection />
         <TrustBar />
-        {/* Gradient bridge: trust green → sage mint */}
+        {/* Gradient bridge: trust → deep (smooth dark transition) */}
+        <div
+          aria-hidden
+          className="w-full h-32 pointer-events-none"
+          style={{ background: "linear-gradient(to bottom, var(--pg-trust), var(--pg-deep))" }}
+        />
+        <HowItWorksSection />
+        {/* Bridge: deep → mid */}
         <div
           aria-hidden
           className="w-full h-24 pointer-events-none"
-          style={{ background: "linear-gradient(to bottom, var(--pg-trust), var(--pg-mid))" }}
+          style={{ background: "linear-gradient(to bottom, var(--pg-deep), var(--pg-mid))" }}
         />
-        <HowItWorksSection />
         <FeaturesSection />
+        {/* Bridge: mid → light */}
+        <div
+          aria-hidden
+          className="w-full h-24 pointer-events-none"
+          style={{ background: "linear-gradient(to bottom, var(--pg-mid), var(--pg-light))" }}
+        />
         <SecuritySection />
+        {/* Bridge: light → lighter */}
+        <div
+          aria-hidden
+          className="w-full h-24 pointer-events-none"
+          style={{ background: "linear-gradient(to bottom, var(--pg-light), var(--pg-lighter))" }}
+        />
         <TestimonialsSection />
+        {/* Bridge: lighter → near-white */}
+        <div
+          aria-hidden
+          className="w-full h-16 pointer-events-none"
+          style={{ background: "linear-gradient(to bottom, var(--pg-lighter), var(--pg-near-white))" }}
+        />
         <FAQSection />
         <CTASection />
       </main>
