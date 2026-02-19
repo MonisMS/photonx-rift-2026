@@ -228,6 +228,13 @@ export function ResultCard({ result, isLoadingExplain = false }: ResultCardProps
           </div>
         )}
 
+        {/* ── CPIC Guideline Reference ── */}
+        {"guideline_reference" in clinical_recommendation && clinical_recommendation.guideline_reference && (
+          <p className="text-[11px] text-muted-foreground/70 leading-relaxed font-mono">
+            {clinical_recommendation.guideline_reference}
+          </p>
+        )}
+
         {/* ── AI Explanation ── */}
         {isLoadingExplain ? (
           <div className="space-y-2 pt-1 rounded-lg bg-muted/40 p-4">

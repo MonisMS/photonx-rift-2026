@@ -72,6 +72,7 @@ export interface ClinicalRecommendation {
   summary: string;
   action: string;
   alternative_drugs?: string[];
+  guideline_reference: string;
 }
 
 export interface LLMExplanation {

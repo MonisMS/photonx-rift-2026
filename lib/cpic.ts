@@ -22,6 +22,21 @@ export const DRUG_GENE_MAP: Record<SupportedDrug, SupportedGene> = {
   CAPECITABINE: "DPYD",
 };
 
+// ─── CPIC Guideline References ───────────────────────────────────────────────
+
+export const CPIC_REFERENCES: Record<SupportedDrug, string> = {
+  CODEINE:      "CPIC Guideline for CYP2D6 and Codeine Therapy (2019 Update) — PMID: 31006110",
+  TRAMADOL:     "CPIC Guideline for CYP2D6 and Tramadol Therapy (2020) — PMID: 33387367",
+  WARFARIN:     "CPIC Guideline for Pharmacogenetics-Guided Warfarin Dosing (2017 Update) — PMID: 28198005",
+  CELECOXIB:    "CPIC Guideline for NSAIDs and CYP2C9 (2020) — PMID: 32189324",
+  CLOPIDOGREL:  "CPIC Guideline for CYP2C19 and Clopidogrel Therapy (2022 Update) — PMID: 35034351",
+  OMEPRAZOLE:   "CPIC Guideline for CYP2C19 and Proton Pump Inhibitor Dosing (2022) — PMID: 35034351",
+  SIMVASTATIN:  "CPIC Guideline for SLCO1B1 and Simvastatin-Induced Myopathy (2022 Update) — PMID: 35152405",
+  AZATHIOPRINE: "CPIC Guideline for TPMT/NUDT15 and Thiopurine Dosing (2018 Update) — PMID: 30447069",
+  FLUOROURACIL: "CPIC Guideline for DPYD and Fluoropyrimidine Dosing (2017 Update) — PMID: 29152729",
+  CAPECITABINE: "CPIC Guideline for DPYD and Fluoropyrimidine Dosing (2017 Update) — PMID: 29152729",
+};
+
 // ─── Diplotype → Phenotype Tables ────────────────────────────────────────────
 // Key format: "ALLELE1/ALLELE2" — always sorted so lower allele comes first
 // e.g. "*1/*4" not "*4/*1"

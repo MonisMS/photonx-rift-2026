@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { validateRequest } from "@/lib/validator";
-import { DRUG_GENE_MAP, buildDiplotype, getPhenotype, getRisk, getConfidence } from "@/lib/cpic";
+import { DRUG_GENE_MAP, CPIC_REFERENCES, buildDiplotype, getPhenotype, getRisk, getConfidence } from "@/lib/cpic";
 import type { AnalysisResult, SupportedDrug } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -53,9 +53,10 @@ export async function POST(req: Request) {
         })),
       },
       clinical_recommendation: {
-        summary:           risk.action,
-        action:            risk.action,
-        alternative_drugs: risk.alternatives,
+        summary:             risk.action,
+        action:              risk.action,
+        alternative_drugs:   risk.alternatives,
+        guideline_reference: CPIC_REFERENCES[drug],
       },
       quality_metrics: {
         vcf_parsing_success: true,

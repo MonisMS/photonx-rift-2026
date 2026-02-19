@@ -9,6 +9,7 @@ import { Input }             from "@/components/ui/input";
 import { Badge }             from "@/components/ui/badge";
 import { Separator }         from "@/components/ui/separator";
 import { Skeleton }          from "@/components/ui/skeleton";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { VCFUpload }         from "@/components/vcf-upload";
 import { DrugInput }         from "@/components/drug-input";
 import { ResultCard }        from "@/components/result-card";
@@ -22,6 +23,11 @@ import {
   AlertCircle,
   ChevronLeft,
   Sparkles,
+  ShieldCheck,
+  Info,
+  Clock,
+  Dna,
+  AlertTriangle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -104,6 +110,7 @@ export default function AnalyzePage() {
   const [fullResults, setFullResults] = useState<AnalysisResult[]>([]);
   const [error,       setError]       = useState<string | null>(null);
   const [copied,      setCopied]      = useState(false);
+  const [analysisMeta, setAnalysisMeta] = useState<{ cpicMs: number; totalMs: number; genesAnalyzed: string[] } | null>(null);
 
   const canAnalyze    = variants.length > 0 && selectedDrugs.length > 0 && patientId.trim().length > 0;
   const isLoading     = phase === "analyzing" || phase === "explaining";
@@ -114,6 +121,9 @@ export default function AnalyzePage() {
     setError(null);
     setCpicResults([]);
     setFullResults([]);
+    setAnalysisMeta(null);
+
+    const t0 = performance.now();
 
     const analyzeRes = await fetch("/api/analyze", {
       method:  "POST",
@@ -129,6 +139,8 @@ export default function AnalyzePage() {
     }
 
     const { results: cpic } = await analyzeRes.json();
+    const cpicMs = Math.round(performance.now() - t0);
+    const genesAnalyzed = cpic.length > 0 ? cpic[0].quality_metrics.genes_analyzed : [];
     setCpicResults(cpic);
     setPhase("explaining");
 
@@ -143,6 +155,8 @@ export default function AnalyzePage() {
       setFullResults(full);
     }
 
+    const totalMs = Math.round(performance.now() - t0);
+    setAnalysisMeta({ cpicMs, totalMs, genesAnalyzed });
     setPhase("done");
   }
 
@@ -208,6 +222,28 @@ export default function AnalyzePage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Upload a patient&apos;s VCF file, select drugs, and receive an instant risk report based on CPIC clinical guidelines.
           </p>
+        </div>
+
+        {/* ── Transparency + Disclaimer strip ── */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex items-start gap-2.5 flex-1 rounded-lg border border-primary/20 bg-accent/50 px-4 py-3">
+            <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-foreground">Deterministic Risk Engine</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                Risk predictions are 100% CPIC table lookups — no AI involved. LLM is used only for explanation generation, never for risk classification.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5 flex-1 rounded-lg border border-border bg-muted/30 px-4 py-3">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-foreground">Research Use Only</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                This tool is for clinical decision support and education. Not a diagnostic device. Always confirm with a qualified clinician.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* ── Input card ── */}
@@ -415,6 +451,41 @@ export default function AnalyzePage() {
                 )}
               </div>
 
+              {/* ── Performance metrics ── */}
+              {analysisMeta && phase === "done" && (
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-muted/30 px-4 py-2.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>CPIC: <span className="font-semibold text-foreground">{analysisMeta.cpicMs}ms</span></span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Total: <span className="font-semibold text-foreground">{analysisMeta.totalMs}ms</span></span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Dna className="h-3.5 w-3.5" />
+                    <span>Variants: <span className="font-semibold text-foreground">{variants.length}</span></span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <FlaskConical className="h-3.5 w-3.5" />
+                    <span>Genes: <span className="font-semibold text-foreground">{analysisMeta.genesAnalyzed.join(", ")}</span></span>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Partial genotype warning ── */}
+              {cpicResults.some((r) => r.risk_assessment.confidence_score < 0.9) && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-800">Partial Genotype Data Detected</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+                      One or more genes have incomplete allele data (confidence &lt; 95%). Results marked with lower confidence assume a normal (*1) allele for the missing copy. Confirm with full genotyping for clinical decisions.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Result cards */}
               <div className="grid gap-4 sm:grid-cols-2">
                 {cpicResults.map((cpicResult, i) => {
@@ -449,6 +520,44 @@ export default function AnalyzePage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ── System Architecture (collapsible) ── */}
+        <Accordion type="single" collapsible className="mt-4">
+          <AccordionItem value="arch" className="rounded-xl border border-border bg-card px-5 shadow-card">
+            <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline">
+              <span className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-primary" />
+                System Architecture
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-4 pb-4 text-sm text-muted-foreground">
+                <pre className="rounded-lg bg-muted/50 border border-border p-4 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre">{`Browser (Client)
+  ├── FileReader API parses .vcf text (no server upload)
+  ├── Extracts variants: gene, star allele, rsID
+  └── Sends compact JSON to API
+
+Phase 1 — POST /api/analyze (deterministic, <200ms)
+  ├── lib/validator.ts  → validates variants, drugs, patientId
+  ├── lib/cpic.ts       → diplotype → phenotype → risk label
+  ├── Confidence: 0.95 (both alleles) / 0.70 (one) / 0.30 (none)
+  └── Returns CPICResult[] — zero AI calls
+
+Phase 2 — POST /api/explain (AI, ~2-5s)
+  ├── lib/gemini.ts     → builds ONE batched prompt for all drugs
+  ├── lib/ai.ts         → waterfall: Gemini → OpenRouter → OpenAI
+  └── Returns LLM explanation with mechanism + citations
+
+Key Design Decisions:
+  • Risk prediction is 100% deterministic (CPIC tables)
+  • AI is used ONLY for explanation generation
+  • VCF never leaves the browser — privacy by design
+  • Single API call regardless of drug count
+  • Provider waterfall ensures 99%+ uptime`}</pre>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </main>
     </div>
   );
