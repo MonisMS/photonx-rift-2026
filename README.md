@@ -61,39 +61,43 @@ The UI drug picker is backed by the CPIC API and can display >160 guideline drug
 
 ## Architecture Overview
 
-```text
-Browser (Next.js / React)
-  ├─ VCF uploaded via drag & drop
-  │   └─ FileReader parses .vcf text client-side
-  │      └─ lib/vcf-parser.ts extracts { gene, starAllele, rsid }
-  │      └─ Gene phenotype heatmap rendered immediately
-  ├─ Drug selection via searchable combobox (supports comma/space separated)
-  └─ POST /api/analyze with { patientId, variants, drugs[], genesDetected }
+```mermaid
+flowchart TD
 
-Server (Phase 1 — CPIC, no AI)
-  └─ app/api/analyze/route.ts
-      ├─ lib/validator.ts
-      │    └─ validates input, enforces 6 core drugs
-      ├─ lib/cpic.ts
-      │    ├─ DRUG_GENE_MAP (6 drugs × 6 genes)
-      │    ├─ diplotype tables → phenotype
-      │    ├─ phenotype → risk_label + severity
-      │    └─ rule‑based confidence scores (0.95 / 0.85 / 0.30)
-      └─ returns CPICResult[] matching the PS JSON schema
+%% CLIENT
+subgraph CLIENT["Browser - Next.js / React"]
+    A["VCF Upload - Drag and Drop"] --> B["FileReader API"]
+    B --> C["VCF Parser extracts gene starAllele rsid"]
+    C --> D["Gene Phenotype Heatmap"]
+    C --> E["Drug Selection Combobox"]
+    E --> F["POST /api/analyze"]
+end
 
-Server (Phase 2 — LLM, per‑drug parallel)
-  └─ app/api/explain-single/route.ts
-      ├─ Builds ExplainInput from each CPICResult
-      │    (primary_gene, diplotype, phenotype, rsid or NONE, guideline_reference)
-      ├─ lib/gemini.ts
-      │    ├─ Encodes strict safety rules about allowed fields
-      │    └─ Calls generateWithFallback(prompt)
-      └─ Merges llm_generated_explanation into AnalysisResult
+%% SERVER PHASE 1
+subgraph SERVER1["Server Phase 1 - Deterministic CPIC"]
+    F --> G["Input Validation - 6 Core Drugs"]
+    G --> H["CPIC Engine"]
+    H --> H1["Drug Gene Map 6x6"]
+    H --> H2["Diplotype to Phenotype"]
+    H --> H3["Phenotype to Risk Label"]
+    H --> H4["Confidence Score 0.95 0.85 0.30"]
+    H4 --> I["Return CPICResult"]
+end
 
-AI Provider Waterfall (lib/ai.ts)
-  1. Gemini 2.0 Flash / Flash‑Lite (up to 4 Google keys)
-  2. OpenAI gpt‑4o‑mini
-  3. OpenRouter free models (Llama 3.3 70B → 3.1 8B → Mistral 7B)
+%% SERVER PHASE 2
+subgraph SERVER2["Server Phase 2 - Explainable AI"]
+    I --> J["Build Explain Input"]
+    J --> K["LLM Safety Rules Applied"]
+    K --> L["Generate Explanation with Fallback"]
+    L --> M["Merge Explanation into Final Result"]
+end
+
+%% AI WATERFALL
+subgraph AI["AI Provider Waterfall"]
+    L --> P1["Gemini 2 Flash"]
+    L --> P2["OpenAI gpt-4o-mini"]
+    L --> P3["OpenRouter Models"]
+end
 ```
 
 The **risk assessment is fully deterministic** (table lookup). The LLM is used only for narrative explanation; it never decides Safe vs Toxic.
@@ -351,10 +355,10 @@ Update this table with your actual team details before submission:
 
 | Name | Role |
 |---|---|
-| Member 1 | Lead Developer |
-| Member 2 | PGx / Clinical Domain |
-| Member 3 | Product & UX |
-| Member 4 | Documentation & Video |
+| Praphull Kumar Shahi | Lead Developer |
+| Syed Monis Sarwar | PGx / Clinical Domain |
+| Vibhav Shukla | Product & UX |
+| Tripurari Kumar | Documentation & Video |
 
 ---
 
