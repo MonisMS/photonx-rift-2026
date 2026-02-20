@@ -11,7 +11,7 @@ PharmaGuard is a Next.js web app that analyzes a patient's genetic data (VCF fil
 | | |
 |---|---|
 | **Live Demo** | https://photonx-rift-2026.vercel.app |
-| **Demo Video (LinkedIn)** | _Add public LinkedIn post URL here once recorded_ |
+| **Demo Video (LinkedIn)** | [_LinkedIn_](https://www.linkedin.com/posts/syed-monis-sarwar-sms47_rift2026-pharmaguard-pharmacogenomics-activity-7430424309543759872-jrFs?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAADSFvu0Bd87DGQmo9Xx9ZxacHfi7zQ-wFGo) |
 | **GitHub** | https://github.com/MonisMS/photonx-rift-2026 |
 
 ---
