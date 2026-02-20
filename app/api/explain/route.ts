@@ -19,13 +19,14 @@ export async function POST(req: Request) {
 
   // Build Gemini inputs from CPIC results
   const explainInputs = cpicResults.map((r) => ({
-    gene:       r.pharmacogenomic_profile.primary_gene,
-    diplotype:  r.pharmacogenomic_profile.diplotype,
-    phenotype:  r.pharmacogenomic_profile.phenotype,
-    rsid:       r.pharmacogenomic_profile.detected_variants[0]?.rsid ?? "unknown",
-    drug:       r.drug,
-    risk_label: r.risk_assessment.risk_label,
-    severity:   r.risk_assessment.severity,
+    gene:                r.pharmacogenomic_profile.primary_gene,
+    diplotype:           r.pharmacogenomic_profile.diplotype,
+    phenotype:           r.pharmacogenomic_profile.phenotype,
+    rsid:                r.pharmacogenomic_profile.detected_variants[0]?.rsid ?? "NONE",
+    drug:                r.drug,
+    risk_label:          r.risk_assessment.risk_label,
+    severity:            r.risk_assessment.severity,
+    guideline_reference: r.clinical_recommendation.guideline_reference,
   }));
 
   // Single batched call — all drugs in one prompt, one API request total

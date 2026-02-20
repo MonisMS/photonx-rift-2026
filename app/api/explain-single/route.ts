@@ -22,13 +22,14 @@ export async function POST(req: Request) {
   const cpicResult: CPICResult = body.result;
 
   const explanation = await explainSingle({
-    gene:       cpicResult.pharmacogenomic_profile.primary_gene,
-    diplotype:  cpicResult.pharmacogenomic_profile.diplotype,
-    phenotype:  cpicResult.pharmacogenomic_profile.phenotype,
-    rsid:       cpicResult.pharmacogenomic_profile.detected_variants[0]?.rsid ?? "unknown",
-    drug:       cpicResult.drug,
-    risk_label: cpicResult.risk_assessment.risk_label,
-    severity:   cpicResult.risk_assessment.severity,
+    gene:                 cpicResult.pharmacogenomic_profile.primary_gene,
+    diplotype:            cpicResult.pharmacogenomic_profile.diplotype,
+    phenotype:            cpicResult.pharmacogenomic_profile.phenotype,
+    rsid:                 cpicResult.pharmacogenomic_profile.detected_variants[0]?.rsid ?? "NONE",
+    drug:                 cpicResult.drug,
+    risk_label:           cpicResult.risk_assessment.risk_label,
+    severity:             cpicResult.risk_assessment.severity,
+    guideline_reference:  cpicResult.clinical_recommendation.guideline_reference,
   });
 
   const fullResult: AnalysisResult = {
