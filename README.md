@@ -2,7 +2,7 @@
 
 > RIFT 2026 Hackathon · Pharmacogenomics / Explainable AI Track
 
-PharmaGuard analyzes a patient's genetic data (VCF file) and predicts personalized drug risks based on published CPIC clinical guidelines, with AI-generated explanations powered by Google Gemini.
+PharmaGuard is a Next.js web app that analyzes a patient's genetic data (VCF file) plus one or more drugs and returns a pharmacogenomic risk report driven by deterministic CPIC lookup tables, with tightly constrained LLM-generated clinical explanations.
 
 ---
 
@@ -11,219 +11,349 @@ PharmaGuard analyzes a patient's genetic data (VCF file) and predicts personaliz
 | | |
 |---|---|
 | **Live Demo** | https://photonx-rift-2026.vercel.app |
-| **Demo Video** | _LinkedIn video link — add after recording_ |
+| **Demo Video (LinkedIn)** | _Add public LinkedIn post URL here once recorded_ |
 | **GitHub** | https://github.com/MonisMS/photonx-rift-2026 |
+
+---
+
+## Problem Alignment (RIFT 2026 PS)
+
+This project is built specifically for the **RIFT 2026 – Pharmacogenomics / Explainable AI** problem statement:
+
+- **Authentic VCF parsing** — parses standard VCF v4.2 files in the browser using the `GENE`, `STAR`, and `RS` INFO tags.
+- **6 critical genes** — supports `CYP2D6`, `CYP2C19`, `CYP2C9`, `SLCO1B1`, `TPMT`, `DPYD`.
+- **Drug-specific risk prediction** — for the 6 required drugs:
+  - `CODEINE`, `WARFARIN`, `CLOPIDOGREL`, `SIMVASTATIN`, `AZATHIOPRINE`, `FLUOROURACIL`.
+- **Risk labels** — always one of: `Safe`, `Adjust Dosage`, `Toxic`, `Ineffective`, `Unknown`.
+- **JSON schema** — server output matches the exact schema in the problem statement and adds a machine-readable `decision_trace` for auditability.
+- **Explainability** — Phase 2 uses an LLM to generate:
+  - `summary`, `mechanism`, `recommendation`, `citations` fields under `llm_generated_explanation`.
+  - Citations are constructed deterministically from the CPIC guideline reference and real rsIDs.
 
 ---
 
 ## What It Does
 
-Upload a patient's `.vcf` file and select drugs. PharmaGuard:
+From a clinician's perspective:
 
-1. Parses genetic variants from the VCF (GENE, STAR, RS info tags)
-2. Determines diplotype and metabolizer phenotype per gene
-3. Looks up CPIC guidelines to assign risk: **Safe / Adjust Dosage / Toxic / Ineffective / Unknown**
-4. Calls Google Gemini to generate a plain-English clinical explanation
-5. Returns a structured JSON report matching the required schema
+1. Upload a patient's `.vcf` file (max 5 MB) via drag-and-drop or file picker.
+2. Enter a **Patient ID**.
+3. Select one or more drugs (including the 6 core drugs) using a searchable combobox that supports comma‑ or space‑separated input.
+4. Click **Run Clinical Risk Analysis**.
+5. Instantly see CPIC-based risk cards for each drug (no AI involved).
+6. Within ~2–3 seconds per drug, see AI explanations fill in (summary, mechanism, recommendation, citations).
+7. Download a clinical PDF report, export structured JSON, or copy JSON to the clipboard.
 
-Supported genes: `CYP2D6` `CYP2C19` `CYP2C9` `SLCO1B1` `TPMT` `DPYD`
+Core pharmacogenes: `CYP2D6`, `CYP2C19`, `CYP2C9`, `SLCO1B1`, `TPMT`, `DPYD`.
 
-Supported drugs: `CODEINE` `WARFARIN` `CLOPIDOGREL` `SIMVASTATIN` `AZATHIOPRINE` `FLUOROURACIL` `TRAMADOL` `OMEPRAZOLE` `CELECOXIB` `CAPECITABINE`
+Core risk-engine drugs (required by PS):
 
----
+- `CODEINE`
+- `WARFARIN`
+- `CLOPIDOGREL`
+- `SIMVASTATIN`
+- `AZATHIOPRINE`
+- `FLUOROURACIL`
 
-## Architecture
-
-```
-Browser
-  └── FileReader parses .vcf text (avoids server upload size limits)
-  └── Sends extracted variants JSON to API
-
-POST /api/analyze  (Phase 1 — instant)
-  └── lib/validator.ts  → validates every variant server-side
-  └── lib/cpic.ts       → diplotype → phenotype → risk label + severity
-  └── Returns CPICResult[] in < 200ms
-
-POST /api/explain  (Phase 2 — single batched AI call)
-  └── lib/gemini.ts     → builds ONE prompt containing all drugs, single API call
-  └── lib/ai.ts         → waterfall: Gemini (4 keys × 2 models) → OpenRouter (free) → OpenAI (paid)
-  └── Returns full AnalysisResult[] with llm_generated_explanation
-```
-
-The risk logic is **fully deterministic** (CPIC lookup tables). Gemini is used only for generating clinical explanations — it does not make the risk decision.
+The UI drug picker is backed by the CPIC API and can display >160 guideline drugs, but the deterministic risk engine for this hackathon is intentionally scoped to the 6 required drugs above.
 
 ---
 
-## Tech Stack
+## Architecture Overview
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript |
-| Styling | Tailwind CSS v4 + shadcn/ui |
-| AI | Google Gemini 2.0 Flash via Vercel AI SDK |
-| Deployment | Vercel |
+```text
+Browser (Next.js / React)
+  ├─ VCF uploaded via drag & drop
+  │   └─ FileReader parses .vcf text client-side
+  │      └─ lib/vcf-parser.ts extracts { gene, starAllele, rsid }
+  │      └─ Gene phenotype heatmap rendered immediately
+  ├─ Drug selection via searchable combobox (supports comma/space separated)
+  └─ POST /api/analyze with { patientId, variants, drugs[], genesDetected }
+
+Server (Phase 1 — CPIC, no AI)
+  └─ app/api/analyze/route.ts
+      ├─ lib/validator.ts
+      │    └─ validates input, enforces 6 core drugs
+      ├─ lib/cpic.ts
+      │    ├─ DRUG_GENE_MAP (6 drugs × 6 genes)
+      │    ├─ diplotype tables → phenotype
+      │    ├─ phenotype → risk_label + severity
+      │    └─ rule‑based confidence scores (0.95 / 0.85 / 0.30)
+      └─ returns CPICResult[] matching the PS JSON schema
+
+Server (Phase 2 — LLM, per‑drug parallel)
+  └─ app/api/explain-single/route.ts
+      ├─ Builds ExplainInput from each CPICResult
+      │    (primary_gene, diplotype, phenotype, rsid or NONE, guideline_reference)
+      ├─ lib/gemini.ts
+      │    ├─ Encodes strict safety rules about allowed fields
+      │    └─ Calls generateWithFallback(prompt)
+      └─ Merges llm_generated_explanation into AnalysisResult
+
+AI Provider Waterfall (lib/ai.ts)
+  1. Gemini 2.0 Flash / Flash‑Lite (up to 4 Google keys)
+  2. OpenAI gpt‑4o‑mini
+  3. OpenRouter free models (Llama 3.3 70B → 3.1 8B → Mistral 7B)
+```
+
+The **risk assessment is fully deterministic** (table lookup). The LLM is used only for narrative explanation; it never decides Safe vs Toxic.
 
 ---
 
-## Installation
+## JSON Output Schema
 
-```bash
-# Clone the repo
-git clone https://github.com/MonisMS/photonx-rift-2026
-cd photonx-rift-2026
+Every result object matches (and extends) the required schema:
 
-# Install dependencies
-pnpm install
-
-# Set up environment variables
-cp .env.example .env.local
-# Add your Gemini API keys to .env.local
-
-# Start dev server
-pnpm dev
+```json
+{
+  "patient_id": "PATIENT_001",
+  "drug": "CODEINE",
+  "timestamp": "2026-02-20T10:00:00.000Z",
+  "risk_assessment": {
+    "risk_label": "Safe",
+    "confidence_score": 0.95,
+    "severity": "none"
+  },
+  "pharmacogenomic_profile": {
+    "primary_gene": "CYP2D6",
+    "diplotype": "*1/*1",
+    "phenotype": "NM",
+    "detected_variants": [
+      {
+        "rsid": "rs3892097",
+        "gene": "CYP2D6",
+        "star_allele": "*4"
+      }
+    ]
+  },
+  "clinical_recommendation": {
+    "summary": "Standard codeine dosing is appropriate.",
+    "action": "Standard codeine dosing is appropriate.",
+    "alternative_drugs": [],
+    "guideline_reference": "CPIC Guideline for CYP2D6 and Codeine Therapy (2019 Update) — PMID: 31006110"
+  },
+  "llm_generated_explanation": {
+    "summary": "Short, non‑technical summary for clinicians.",
+    "mechanism": "1–2 sentences describing how the diplotype and phenotype affect this drug.",
+    "recommendation": "Restates the clinical action in plain language.",
+    "citations": "CPIC Guideline for CYP2D6 and Codeine Therapy (2019 Update) — PMID: 31006110; rs3892097"
+  },
+  "quality_metrics": {
+    "vcf_parsing_success": true,
+    "variants_detected": 1,
+    "genes_analyzed": ["CYP2D6"],
+    "decision_trace": {
+      "lookup_source": "CPIC 2019 CYP2D6-CODEINE Table",
+      "phenotype_rule": "NM → standard dosing",
+      "evidence_level": "A",
+      "classification_type": "deterministic_table_lookup",
+      "confidence_reason": "Both alleles explicitly identified in VCF"
+    }
+  }
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+This is exactly the shape expected by the RIFT public test cases, with an additional `decision_trace` to make the algorithm auditable.
 
 ---
 
-## Environment Setup
+## Web Interface
 
-Copy `.env.example` to `.env.local` and fill in your keys:
+### 1. File Upload
 
-```bash
-cp .env.example .env.local
-```
+- Drag‑and‑drop upload zone with animation, or file picker.
+- Accepts `.vcf` files only (VCF v4.2 text files).
+- Enforces a **5 MB** size limit with clear help text.
+- Parses VCF **client‑side** so the raw file is never sent to the server.
 
-| Variable | Required | Description |
-|---|---|---|
-| `GOOGLE_API_KEY_1` | Yes | Primary Gemini key — free at [aistudio.google.com](https://aistudio.google.com/apikey) |
-| `GOOGLE_API_KEY_2..4` | No | Extra Gemini keys for rate-limit rotation (~30 req/day each) |
-| `OPENROUTER_API_KEY` | No | Free fallback — Llama 3.3 70B, Llama 3.1 8B, Mistral 7B via [openrouter.ai](https://openrouter.ai/keys) |
-| `OPENAI_API_KEY` | No | Paid last resort — gpt-4o-mini (~$0.0007 per 6-drug run) |
+### 2. Drug Input Field
 
-The AI provider waterfall is: **Gemini (free) → OpenRouter (free) → OpenAI (paid)**. Only `GOOGLE_API_KEY_1` is required; all others extend resilience. The app works fully even if Gemini is quota-exhausted.
+- Searchable combobox backed by `/api/drugs` (CPIC catalog).
+- Supports:
+  - Typing a single drug and pressing Enter.
+  - Comma‑separated or space‑separated entry (e.g. `codeine, warfarin simvastatin`).
+  - Brand‑name aliases (e.g. `Plavix` → `CLOPIDOGREL`).
+- The server only analyzes the 6 core drugs specified in the problem statement.
+
+### 3. Results Display
+
+- Per‑drug card with:
+  - Risk badge: Safe / Adjust Dosage / Toxic / Ineffective / Unknown.
+  - Diplotype and phenotype.
+  - Confidence bar and score.
+  - Expandable panel with AI explanation.
+- Comparison table across all selected drugs for quick at‑a‑glance review.
+- Export actions:
+  - Download JSON (exact schema as above).
+  - Copy JSON to clipboard.
+  - Download PDF clinical report.
+
+### 4. Error Handling
+
+- Invalid or oversized VCF → clear error message and guidance.
+- Unsupported drugs → server‑side validation with human‑readable error.
+- AI provider failures → app still returns deterministic CPIC result; explanation falls back gracefully.
 
 ---
 
 ## API Reference
 
-### `POST /api/analyze`
+### `POST /api/analyze`  — Phase 1 (deterministic CPIC engine)
 
-Phase 1 — runs CPIC logic, returns instantly.
+Request body:
 
-**Request:**
 ```json
 {
   "patientId": "PATIENT_001",
   "variants": [
     { "gene": "CYP2D6", "starAllele": "*4", "rsid": "rs3892097" }
   ],
-  "drugs": ["CODEINE", "WARFARIN"]
+  "drugs": ["CODEINE", "WARFARIN"],
+  "genesDetected": ["CYP2D6"]
 }
 ```
 
-**Response:**
+Response body:
+
 ```json
 {
   "results": [
-    {
-      "patient_id": "PATIENT_001",
-      "drug": "CODEINE",
-      "timestamp": "2026-02-19T10:00:00.000Z",
-      "risk_assessment": {
-        "risk_label": "Ineffective",
-        "confidence_score": 0.7,
-        "severity": "low"
-      },
-      "pharmacogenomic_profile": {
-        "primary_gene": "CYP2D6",
-        "diplotype": "*1/*4",
-        "phenotype": "IM",
-        "detected_variants": [
-          { "rsid": "rs3892097", "gene": "CYP2D6", "star_allele": "*4" }
-        ]
-      },
-      "clinical_recommendation": {
-        "summary": "...",
-        "action": "...",
-        "alternative_drugs": ["Tramadol", "Morphine"],
-        "guideline_reference": "CPIC Guideline for CYP2D6 and Codeine Therapy (2019 Update) — PMID: 31006110"
-      },
-      "quality_metrics": {
-        "vcf_parsing_success": true,
-        "variants_detected": 1,
-        "genes_analyzed": ["CYP2D6"]
-      }
-    }
+    { "patient_id": "PATIENT_001", "drug": "CODEINE", "timestamp": "...", "risk_assessment": { "risk_label": "Ineffective", "confidence_score": 0.85, "severity": "low" }, "pharmacogenomic_profile": { "primary_gene": "CYP2D6", "diplotype": "*1/*4", "phenotype": "IM", "detected_variants": [ { "rsid": "rs3892097", "gene": "CYP2D6", "star_allele": "*4" } ] }, "clinical_recommendation": { "summary": "...", "action": "...", "alternative_drugs": ["Tramadol", "Morphine"], "guideline_reference": "CPIC Guideline for CYP2D6 and Codeine Therapy (2019 Update) — PMID: 31006110" }, "quality_metrics": { "vcf_parsing_success": true, "variants_detected": 1, "genes_analyzed": ["CYP2D6"], "decision_trace": { "lookup_source": "...", "phenotype_rule": "...", "evidence_level": "A", "classification_type": "deterministic_table_lookup", "confidence_reason": "..." } } }
   ]
 }
 ```
 
-### `POST /api/explain`
+### `POST /api/explain-single` — Phase 2 (primary path)
 
-Phase 2 — adds Gemini-generated clinical explanations to Phase 1 results.
+Request body:
 
-**Request:** `{ "results": [ ...CPICResult ] }` (output from `/api/analyze`)
-
-**Response:** Same structure with `llm_generated_explanation` added to each result:
 ```json
-{
-  "llm_generated_explanation": {
-    "summary": "This patient is an Intermediate Metabolizer for CYP2D6...",
-    "mechanism": "The rs3892097 variant in CYP2D6 (*4 allele) creates...",
-    "recommendation": "Consider alternative analgesics per CPIC guidelines...",
-    "citations": "CPIC Guideline for CYP2D6 and Codeine (PMID: 31006110); PharmGKB CYP2D6 summary"
-  }
-}
+{ "result": { /* one CPICResult from /api/analyze */ } }
 ```
+
+Response body:
+
+```json
+{ "result": { /* same as input, plus llm_generated_explanation */ } }
+```
+
+The server fires `/api/explain-single` once per drug in parallel so that explanations stream in as soon as each provider responds.
+
+### `POST /api/explain` — Phase 2 (legacy batch)
+
+Takes `{ "results": CPICResult[] }` and returns `AnalysisResult[]`. Kept for completeness; the UI primarily uses `/api/explain-single`.
+
+### Additional Utility Endpoints
+
+- `GET /api/drugs` — returns the CPIC drug catalog used by the combobox.
+- `GET /api/test-keys` — checks configured AI providers / keys.
 
 ---
 
-## Usage
+## Local Development
 
-1. Go to the live URL and click **Get Started**
-2. Enter a **Patient ID**
-3. Upload a `.vcf` file (drag & drop or file picker, max 5MB)
-4. Select one or more drugs to analyze
-5. Click **Analyze**
-6. Risk badges appear instantly (Phase 1)
-7. AI explanations load within 3–5 seconds (Phase 2)
-8. Download as PDF clinical report, JSON, or copy to clipboard
+```bash
+# Clone the repo
+git clone https://github.com/MonisMS/photonx-rift-2026
+cd photonx-rift-2026
 
-Sample VCF files for testing are available on the analyze page.
+# Install dependencies (pnpm only)
+pnpm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Fill in at least GOOGLE_API_KEY_1
+
+# Run dev server
+pnpm dev
+
+# Run tests once
+pnpm test
+
+# Type‑check without building
+pnpm tsc --noEmit
+```
+
+Open http://localhost:3000 in your browser.
+
+---
+
+## Environment Variables
+
+See `.env.example` for the full list. Key values:
+
+| Variable | Required | Description |
+|---|---|---|
+| `GOOGLE_API_KEY_1` | Yes | Primary Gemini key — free at https://aistudio.google.com/apikey |
+| `GOOGLE_API_KEY_2..4` | No | Extra Gemini keys for rate‑limit rotation (~30 req/day each) |
+| `OPENROUTER_API_KEY` | No | Free fallback — Llama / Mistral models via https://openrouter.ai |
+| `OPENAI_API_KEY` | No | Paid last resort — gpt‑4o‑mini |
+
+Provider order: **Gemini → OpenAI → OpenRouter**. If all providers fail or are quota‑limited, the app still returns deterministic CPIC results with a safe fallback explanation string.
 
 ---
 
 ## Risk Labels
 
-| Risk Label | Meaning |
-|---|---|
-| **Safe** | Standard dosing appropriate |
-| **Adjust Dosage** | Dose modification required — see recommendation |
-| **Toxic** | Avoid this drug — dangerous accumulation risk |
-| **Ineffective** | Drug cannot work — metabolic pathway non-functional |
-| **Unknown** | Insufficient variant data for prediction |
+| Risk Label | Severity | Meaning |
+|---|---|---|
+| **Safe** | none | Standard dosing appropriate |
+| **Adjust Dosage** | moderate / high | Dose modification or closer monitoring required |
+| **Toxic** | high / critical | Avoid this drug — serious toxicity risk |
+| **Ineffective** | low / high | Drug unlikely to work at standard doses |
+| **Unknown** | none | Insufficient genotype information to classify risk |
+
+Confidence scores:
+
+- 0.95 — both alleles observed or clear reference genotype.
+- 0.85 — one allele observed; the other inferred as *1.
+- 0.30 — gene not sequenced in the VCF panel.
 
 ---
 
-## Known Limitations
+## Hackathon Submission Checklist
 
-- Covers 6 genes and 10 drugs (CYP2D6, CYP2C19, CYP2C9, SLCO1B1, TPMT, DPYD)
-- CPIC tables include common star alleles; rare/novel combinations return `Unknown`
-- Gemini explanation is informational — not a substitute for clinical pharmacist review
-- Single-sample VCF only; multi-sample VCFs use the first sample column
+This section mirrors the **mandatory submission requirements** from the RIFT 2026 problem statement.
+
+1. **Live deployed web application URL**  
+   - Hosted on Vercel: `https://photonx-rift-2026.vercel.app` (update if your production URL changes).
+
+2. **LinkedIn video demonstration (2–5 minutes)**  
+   - Public post demonstrating: problem, architecture, live demo, and key learnings.  
+   - Tag the official RIFT LinkedIn page.  
+   - Include hashtags: `#RIFT2026` `#PharmaGuard` `#Pharmacogenomics` `#AIinHealthcare`.
+
+3. **GitHub repository (this repo)**  
+   - Public repository with all source code.  
+   - Contains: `package.json`, `.env.example`, deployment instructions, and sample VCFs in `public/samples/`.
+
+4. **README completeness (this file)**  
+   - Project title and description.  
+   - Live demo URL.  
+   - LinkedIn video link (to be filled).  
+   - Architecture overview and tech stack.  
+   - Installation and usage instructions.  
+   - API documentation and JSON schema.  
+   - Team members and roles.
+
+Before submitting on the RIFT portal, double‑check that:
+
+- The live app is accessible and functional.  
+- The LinkedIn video post is public and tags the RIFT page.  
+- This README contains working links for demo, repo, and video.  
+- The app accepts `.vcf` uploads and returns JSON in the required shape.
 
 ---
 
-## Team Members
+## Team
+
+Update this table with your actual team details before submission:
 
 | Name | Role |
 |---|---|
 | Member 1 | Lead Developer |
-| Member 2 | Research & Domain |
-| Member 3 | Design & Presentation |
+| Member 2 | PGx / Clinical Domain |
+| Member 3 | Product & UX |
 | Member 4 | Documentation & Video |
 
 ---
