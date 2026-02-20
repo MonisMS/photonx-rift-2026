@@ -1,0 +1,45 @@
+# Irini deployment configuration example for PharmaGuard
+# Copy this file to irini.yaml (or the Irini UI) and fill in values.
+
+# Service metadata
+service:
+  name: pharmaguard
+  description: "PharmaGuard – Pharmacogenomic Risk Prediction (RIFT 2026)"
+  replicas: 1
+
+# Container image (use the image built from this repo)
+image:
+  repository: your-registry.example.com/pharmaguard
+  tag: latest
+
+# Runtime
+runtime:
+  nodeVersion: "22"
+  command: "pnpm start"
+  port: 3000
+
+# Environment variables (match .env.example)
+env:
+  - name: GOOGLE_API_KEY_1
+    value: "your_gemini_key_here"
+  - name: GOOGLE_API_KEY_2
+    value: "your_gemini_key_here"
+  - name: GOOGLE_API_KEY_3
+    value: "your_gemini_key_here"
+  - name: GOOGLE_API_KEY_4
+    value: "your_gemini_key_here"
+  - name: OPENROUTER_API_KEY
+    value: "your_openrouter_key_here"
+  - name: OPENAI_API_KEY
+    value: "your_openai_key_here"
+
+# Resources (adjust to your cluster limits)
+resources:
+  cpu: "500m"
+  memory: "1Gi"
+
+# HTTP ingress (Irini / Kubernetes-managed)
+ingress:
+  enabled: true
+  host: pharmaguard.your-domain.example.com
+  tls: false
