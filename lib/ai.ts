@@ -138,7 +138,7 @@ async function tryOpenAI(prompt: string): Promise<string | null> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main entry point
-// Waterfall: Gemini (free) → OpenRouter (free) → OpenAI (paid last resort)
+// Waterfall: Gemini (free) → OpenAI (fast) → OpenRouter (free fallback)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function generateWithFallback(prompt: string): Promise<string | null> {
@@ -146,13 +146,13 @@ export async function generateWithFallback(prompt: string): Promise<string | nul
   const geminiResult = await tryGemini(prompt);
   if (geminiResult) return geminiResult;
 
-  // 2. OpenRouter — 3 free models (Llama 3.3 70B → 3.1 8B → Mistral 7B)
-  const openRouterResult = await tryOpenRouter(prompt);
-  if (openRouterResult) return openRouterResult;
-
-  // 3. OpenAI gpt-4o-mini — paid, last resort
+  // 2. OpenAI gpt-4o-mini — fast and reliable
   const openAIResult = await tryOpenAI(prompt);
   if (openAIResult) return openAIResult;
+
+  // 3. OpenRouter — free models as last fallback
+  const openRouterResult = await tryOpenRouter(prompt);
+  if (openRouterResult) return openRouterResult;
 
   console.error("[ai] All providers exhausted — returning null");
   return null;

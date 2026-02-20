@@ -93,17 +93,8 @@ export async function explainAll(inputs: ExplainInput[]): Promise<LLMExplanation
 // ─── Single Drug Explainer — 1 API call for 1 drug (used for parallel) ───────
 
 function buildSinglePrompt(input: ExplainInput): string {
-  return `You are a clinical pharmacogenomics expert. For the drug below, return ONLY a single JSON object (no markdown, no extra text).
-
-Drug: ${input.drug} | Gene: ${input.gene} | Diplotype: ${input.diplotype} | Phenotype: ${input.phenotype} | Variant: ${input.rsid} | Risk: ${input.risk_label} (${input.severity})
-
-Fields:
-- summary: one sentence risk summary for a non-specialist
-- mechanism: 2-3 sentences on biological mechanism citing the rsID and diplotype
-- recommendation: specific CPIC-aligned clinical action
-- citations: one sentence referencing the specific rsID, star allele, diplotype, and CPIC guideline
-
-Return exactly: {"summary":"...","mechanism":"...","recommendation":"...","citations":"..."}`;
+  return `Pharmacogenomics: ${input.drug}, ${input.gene} ${input.diplotype} (${input.phenotype}), Risk=${input.risk_label}
+Return JSON only: {"summary":"1 sentence for patient","mechanism":"1-2 sentences on gene effect","recommendation":"action","citations":"CPIC ref"}`;
 }
 
 export async function explainSingle(input: ExplainInput): Promise<LLMExplanation> {
