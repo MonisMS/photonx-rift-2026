@@ -212,14 +212,48 @@ export function getRisk(drug: SupportedDrug, phenotype: Phenotype): RiskEntry {
 }
 
 // ─── Confidence Score ─────────────────────────────────────────────────────────
+// Rule-based scoring for technical depth (deterministic)
+// - Full diplotype from explicit star alleles → 0.95
+// - Single allele detected (other inferred as *1) → 0.85
+// - Gene sequenced, no variants (reference *1/*1) → 0.95 (both alleles known)
+// - Gene not sequenced / unsupported → 0.30
+
+export type ConfidenceReason = 
+  | "full_diplotype_resolved"
+  | "single_allele_inferred"
+  | "reference_genotype"
+  | "gene_not_sequenced";
+
+export interface ConfidenceResult {
+  score: number;
+  reason: ConfidenceReason;
+}
 
 export function getConfidence(variants: VCFVariant[], gene: SupportedGene, geneDetected = false): number {
+  return getConfidenceDetailed(variants, gene, geneDetected).score;
+}
+
+export function getConfidenceDetailed(variants: VCFVariant[], gene: SupportedGene, geneDetected = false): ConfidenceResult {
   const count = variants.filter((v) => v.gene === gene).length;
-  if (count >= 2) return 0.95;
-  if (count === 1) return 0.70;
-  // Gene was sequenced but no variant alleles found → patient is reference (normal)
-  if (geneDetected) return 0.90;
-  return 0.30;
+  
+  // Full diplotype: both alleles explicitly identified
+  if (count >= 2) {
+    return { score: 0.95, reason: "full_diplotype_resolved" };
+  }
+  
+  // Single allele: one explicit + one inferred as *1 (wildtype)
+  if (count === 1) {
+    return { score: 0.85, reason: "single_allele_inferred" };
+  }
+  
+  // Gene was sequenced but no variant alleles found → patient is reference (*1/*1)
+  // This is a fully resolved diplotype (both alleles are wildtype)
+  if (geneDetected) {
+    return { score: 0.95, reason: "reference_genotype" };
+  }
+  
+  // Gene not in VCF / not sequenced
+  return { score: 0.30, reason: "gene_not_sequenced" };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

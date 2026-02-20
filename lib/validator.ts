@@ -2,7 +2,8 @@ import type { VCFVariant, SupportedGene } from "@/lib/types";
 
 // ─── Allowed Values ───────────────────────────────────────────────────────────
 
-const SUPPORTED_GENES = new Set<string>([
+// The 6 genes declared in problem statement
+export const SUPPORTED_GENES = new Set<string>([
   "CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD",
 ]);
 
@@ -76,19 +77,20 @@ export function validateRequest(body: unknown): ValidationResult {
     return fail("No variants or sequenced genes provided.", { patientId });
   }
 
-  // Validate drugs array
+  // Validate drugs array - ONLY accept CORE_DRUGS (PS requirement)
   if (!Array.isArray(drugs) || drugs.length === 0) {
     return fail("No drugs provided.", { patientId, variants: validVariants, genesDetected: validGenes });
   }
 
-  // Accept any non-empty string as drug name (normalized to uppercase)
+  // Only accept the 6 core drugs from problem statement
   const validDrugs = drugs
     .filter((d): d is string => typeof d === "string" && d.trim().length > 0)
-    .map((d) => d.trim().toUpperCase());
+    .map((d) => d.trim().toUpperCase())
+    .filter((d) => CORE_DRUGS.has(d));
   
   if (validDrugs.length === 0) {
     return fail(
-      "No valid drug names provided.",
+      "No supported drugs provided. Supported drugs: CODEINE, WARFARIN, CLOPIDOGREL, SIMVASTATIN, AZATHIOPRINE, FLUOROURACIL.",
       { patientId, variants: validVariants, genesDetected: validGenes },
     );
   }

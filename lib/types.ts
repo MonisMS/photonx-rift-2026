@@ -82,10 +82,21 @@ export interface LLMExplanation {
   citations: string;
 }
 
+// Decision trace for technical depth — proves deterministic rule engine
+export interface DecisionTrace {
+  lookup_source: string;      // e.g., "CPIC 2022 CYP2C19-Clopidogrel Table"
+  phenotype_rule: string;     // e.g., "NM → standard dosing"
+  evidence_level: string;     // e.g., "A", "B", or "N/A"
+  classification_type: string; // "deterministic_table_lookup"
+  confidence_reason?: string;  // Why this confidence score
+  notes?: string;              // Additional context (e.g., VKORC1 note for warfarin)
+}
+
 export interface QualityMetrics {
   vcf_parsing_success: boolean;
   variants_detected: number;
   genes_analyzed: string[];
+  decision_trace?: DecisionTrace;  // Nested inside quality_metrics for schema compliance
 }
 
 export interface AnalysisResult {

@@ -18,17 +18,17 @@ describe("Validator — Valid Requests", () => {
     expect(result.patientId).toBe("PATIENT_001");
   });
 
-  it("accepts all 10 drugs", () => {
+  it("accepts all 6 core drugs", () => {
     const result = validateRequest({
       patientId: "TEST",
       variants: [{ gene: "CYP2D6", starAllele: "*1", rsid: "rs3892097" }],
       drugs: [
-        "CODEINE", "TRAMADOL", "WARFARIN", "CELECOXIB", "CLOPIDOGREL",
-        "OMEPRAZOLE", "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL", "CAPECITABINE",
+        "CODEINE", "WARFARIN", "CLOPIDOGREL",
+        "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL",
       ],
     });
     expect(result.valid).toBe(true);
-    expect(result.drugs).toHaveLength(10);
+    expect(result.drugs).toHaveLength(6);
   });
 
   it("trims patientId whitespace", () => {
@@ -217,14 +217,14 @@ describe("Validator — Drug Validation", () => {
     expect(result.valid).toBe(false);
   });
 
-  it("accepts any drug name (dynamic drugs supported)", () => {
+  it("rejects unsupported drugs", () => {
     const result = validateRequest({
       patientId: "TEST",
       variants: [{ gene: "CYP2D6", starAllele: "*1", rsid: "rs3892097" }],
       drugs: ["ASPIRIN"],
     });
-    expect(result.valid).toBe(true);
-    expect(result.drugs).toEqual(["ASPIRIN"]);
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain("No supported drugs");
   });
 
   it("normalizes lowercase drug names to uppercase", () => {
@@ -237,14 +237,14 @@ describe("Validator — Drug Validation", () => {
     expect(result.drugs).toEqual(["CODEINE"]);
   });
 
-  it("keeps all valid drug names", () => {
+  it("filters unsupported drugs but keeps core drugs", () => {
     const result = validateRequest({
       patientId: "TEST",
       variants: [{ gene: "CYP2D6", starAllele: "*1", rsid: "rs3892097" }],
       drugs: ["CODEINE", "ASPIRIN", "WARFARIN"],
     });
     expect(result.valid).toBe(true);
-    expect(result.drugs).toEqual(["CODEINE", "ASPIRIN", "WARFARIN"]);
+    expect(result.drugs).toEqual(["CODEINE", "WARFARIN"]);
   });
 });
 

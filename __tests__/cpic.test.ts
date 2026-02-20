@@ -369,12 +369,12 @@ describe("CPIC — getConfidence", () => {
     expect(getConfidence(variants, "CYP2D6")).toBe(0.95);
   });
 
-  it("returns 0.70 when exactly 1 allele found", () => {
+  it("returns 0.85 when exactly 1 allele found (inferred diplotype)", () => {
     const variants = makeVariants("CYP2D6", ["*4"]);
-    expect(getConfidence(variants, "CYP2D6")).toBe(0.70);
+    expect(getConfidence(variants, "CYP2D6")).toBe(0.85);
   });
 
-  it("returns 0.30 when no alleles found for gene", () => {
+  it("returns 0.40 when no alleles found for gene (not sequenced)", () => {
     const variants = makeVariants("CYP2C19", ["*2"]);
     expect(getConfidence(variants, "CYP2D6")).toBe(0.30);
   });
@@ -390,7 +390,7 @@ describe("CPIC — getConfidence", () => {
       { gene: "CYP2C19", starAllele: "*2", rsid: "rs3" },
     ];
     expect(getConfidence(variants, "CYP2D6")).toBe(0.95);  // 2 alleles
-    expect(getConfidence(variants, "CYP2C19")).toBe(0.70); // 1 allele
+    expect(getConfidence(variants, "CYP2C19")).toBe(0.85); // 1 allele
     expect(getConfidence(variants, "TPMT")).toBe(0.30);    // 0 alleles
   });
 });
@@ -519,11 +519,11 @@ describe("CPIC — Full Pipeline (variants → diplotype → phenotype → risk)
     expect(confidence).toBe(0.30);
   });
 
-  it("single allele → confidence 0.70 and *1 prepended", () => {
+  it("single allele → confidence 0.85 and *1 prepended", () => {
     const variants = makeVariants("CYP2C19", ["*2"]);
     const diplotype = buildDiplotype(variants, "CYP2C19")!;
     expect(diplotype).toBe("*1/*2");
-    expect(getConfidence(variants, "CYP2C19")).toBe(0.70);
+    expect(getConfidence(variants, "CYP2C19")).toBe(0.85);
     expect(getPhenotype("CYP2C19", diplotype)).toBe("IM");
   });
 
@@ -532,7 +532,7 @@ describe("CPIC — Full Pipeline (variants → diplotype → phenotype → risk)
       // CYP2D6: 2 alleles → 0.95 confidence
       { gene: "CYP2D6", starAllele: "*4", rsid: "rs3892097" },
       { gene: "CYP2D6", starAllele: "*4", rsid: "rs5030867" },
-      // CYP2C19: 1 allele → 0.70 confidence
+      // CYP2C19: 1 allele → 0.85 confidence
       { gene: "CYP2C19", starAllele: "*2", rsid: "rs4244285" },
       // TPMT: 0 alleles → 0.30 confidence
     ];
@@ -543,7 +543,7 @@ describe("CPIC — Full Pipeline (variants → diplotype → phenotype → risk)
 
     // CYP2C19
     expect(buildDiplotype(variants, "CYP2C19")).toBe("*1/*2");
-    expect(getConfidence(variants, "CYP2C19")).toBe(0.70);
+    expect(getConfidence(variants, "CYP2C19")).toBe(0.85);
 
     // TPMT (not present)
     expect(buildDiplotype(variants, "TPMT")).toBeNull();

@@ -176,14 +176,15 @@ describe("Integration — Existing test-logic.mjs Cases", () => {
 // ─── All Normal → All Drugs Safe ──────────────────────────────────────────────
 
 describe("Integration — All Normal Patient", () => {
-  const allDrugs: SupportedDrug[] = [
-    "CODEINE", "TRAMADOL", "WARFARIN", "CELECOXIB", "CLOPIDOGREL",
-    "OMEPRAZOLE", "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL", "CAPECITABINE",
+  // Core 6 drugs from problem statement
+  const coreDrugs: SupportedDrug[] = [
+    "CODEINE", "WARFARIN", "CLOPIDOGREL",
+    "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL",
   ];
 
-  it("all 10 drugs return Safe for all-normal VCF", () => {
-    const { results } = simulateAnalyzePipeline(ALL_NORMAL_VCF, allDrugs);
-    expect(results).toHaveLength(10);
+  it("all 6 core drugs return Safe for all-normal VCF", () => {
+    const { results } = simulateAnalyzePipeline(ALL_NORMAL_VCF, coreDrugs);
+    expect(results).toHaveLength(6);
     for (const r of results) {
       expect(r.risk_assessment.risk_label).toBe("Safe");
       expect(r.risk_assessment.severity).toBe("none");
@@ -191,7 +192,7 @@ describe("Integration — All Normal Patient", () => {
   });
 
   it("all drugs have NM phenotype for all-normal VCF", () => {
-    const { results } = simulateAnalyzePipeline(ALL_NORMAL_VCF, allDrugs);
+    const { results } = simulateAnalyzePipeline(ALL_NORMAL_VCF, coreDrugs);
     for (const r of results) {
       expect(r.pharmacogenomic_profile.phenotype).toBe("NM");
     }
@@ -205,12 +206,7 @@ describe("Integration — Multi Risk Patient", () => {
     const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, ["CODEINE"]);
     expect(results[0].risk_assessment.risk_label).toBe("Adjust Dosage");
     expect(results[0].pharmacogenomic_profile.diplotype).toBe("*1/*4");
-    expect(results[0].risk_assessment.confidence_score).toBe(0.70); // only 1 CYP2D6 allele
-  });
-
-  it("TRAMADOL → Adjust Dosage (CYP2D6 *1/*4 = IM)", () => {
-    const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, ["TRAMADOL"]);
-    expect(results[0].risk_assessment.risk_label).toBe("Adjust Dosage");
+    expect(results[0].risk_assessment.confidence_score).toBe(0.85); // single allele inferred
   });
 
   it("WARFARIN → Adjust Dosage (CYP2C9 *1/*2 = IM)", () => {
@@ -219,27 +215,10 @@ describe("Integration — Multi Risk Patient", () => {
     expect(results[0].pharmacogenomic_profile.diplotype).toBe("*1/*2");
   });
 
-  it("CELECOXIB → Adjust Dosage (CYP2C9 *1/*2 = IM)", () => {
-    const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, ["CELECOXIB"]);
-    expect(results[0].risk_assessment.risk_label).toBe("Adjust Dosage");
-  });
-
   it("SIMVASTATIN → Adjust Dosage (SLCO1B1 *1/*5 = IM)", () => {
     const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, ["SIMVASTATIN"]);
     expect(results[0].risk_assessment.risk_label).toBe("Adjust Dosage");
     expect(results[0].pharmacogenomic_profile.diplotype).toBe("*1/*5");
-  });
-
-  it("OMEPRAZOLE → Safe (CYP2C19 *2/*2 = PM → Adjust Dosage)", () => {
-    const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, ["OMEPRAZOLE"]);
-    // CYP2C19 *2/*2 = PM, OMEPRAZOLE PM = Adjust Dosage
-    expect(results[0].risk_assessment.risk_label).toBe("Adjust Dosage");
-    expect(results[0].pharmacogenomic_profile.phenotype).toBe("PM");
-  });
-
-  it("CAPECITABINE → Adjust Dosage (DPYD *1/*2A = IM)", () => {
-    const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, ["CAPECITABINE"]);
-    expect(results[0].risk_assessment.risk_label).toBe("Adjust Dosage");
   });
 });
 
@@ -364,11 +343,11 @@ describe("Integration — JSON Output Schema", () => {
   });
 
   it("guideline_reference includes PMID for every drug", () => {
-    const allDrugs: SupportedDrug[] = [
-      "CODEINE", "TRAMADOL", "WARFARIN", "CELECOXIB", "CLOPIDOGREL",
-      "OMEPRAZOLE", "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL", "CAPECITABINE",
+    const coreDrugs: SupportedDrug[] = [
+      "CODEINE", "WARFARIN", "CLOPIDOGREL",
+      "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL",
     ];
-    const { results } = simulateAnalyzePipeline(ALL_NORMAL_VCF, allDrugs);
+    const { results } = simulateAnalyzePipeline(ALL_NORMAL_VCF, coreDrugs);
     for (const r of results) {
       expect(r.clinical_recommendation.guideline_reference).toMatch(/PMID:\s*\d+/);
     }
@@ -378,10 +357,10 @@ describe("Integration — JSON Output Schema", () => {
 // ─── Confidence Score Integration ─────────────────────────────────────────────
 
 describe("Integration — Confidence Scores", () => {
-  it("all-normal VCF: genes detected but no carrier variants → confidence 0.90", () => {
+  it("all-normal VCF: genes detected but no carrier variants → confidence 0.95", () => {
     // Each gene is sequenced (0/0) but patient carries no ALT alleles
     const { results } = simulateAnalyzePipeline(ALL_NORMAL_VCF, ["CODEINE"]);
-    expect(results[0].risk_assessment.confidence_score).toBe(0.90);
+    expect(results[0].risk_assessment.confidence_score).toBe(0.95);
   });
 
   it("codeine PM VCF: CYP2D6 has 2 alleles → confidence 0.95", () => {
@@ -389,12 +368,12 @@ describe("Integration — Confidence Scores", () => {
     expect(results[0].risk_assessment.confidence_score).toBe(0.95);
   });
 
-  it("multi-risk VCF: CYP2C19 has 2 alleles → 0.95, CYP2D6 has 1 → 0.70", () => {
+  it("multi-risk VCF: CYP2C19 has 2 alleles → 0.95, CYP2D6 has 1 → 0.85", () => {
     const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, ["CLOPIDOGREL", "CODEINE"]);
     const clopidogrelResult = results.find((r) => r.drug === "CLOPIDOGREL")!;
     const codeineResult = results.find((r) => r.drug === "CODEINE")!;
     expect(clopidogrelResult.risk_assessment.confidence_score).toBe(0.95);
-    expect(codeineResult.risk_assessment.confidence_score).toBe(0.70);
+    expect(codeineResult.risk_assessment.confidence_score).toBe(0.85);
   });
 
   it("drug with no gene variants in file → confidence 0.30", () => {
@@ -515,7 +494,7 @@ describe("Integration — Hackathon Edge Cases", () => {
 
     const clopidogrel = results.find((r) => r.drug === "CLOPIDOGREL")!;
     expect(clopidogrel.risk_assessment.risk_label).toBe("Adjust Dosage");
-    expect(clopidogrel.risk_assessment.confidence_score).toBe(0.70);
+    expect(clopidogrel.risk_assessment.confidence_score).toBe(0.85);
 
     const azathioprine = results.find((r) => r.drug === "AZATHIOPRINE")!;
     expect(azathioprine.risk_assessment.risk_label).toBe("Safe"); // no TPMT data → *1/*1 → NM → Safe
@@ -535,16 +514,16 @@ describe("Integration — Hackathon Edge Cases", () => {
     expect(results[0].pharmacogenomic_profile.diplotype).toBe("*1/*4"); // *1 prepended
     expect(results[0].pharmacogenomic_profile.phenotype).toBe("IM");
     expect(results[0].risk_assessment.risk_label).toBe("Adjust Dosage");
-    expect(results[0].risk_assessment.confidence_score).toBe(0.70);
+    expect(results[0].risk_assessment.confidence_score).toBe(0.85);
   });
 
-  it("handles 10 drugs requested simultaneously", () => {
-    const allDrugs: SupportedDrug[] = [
-      "CODEINE", "TRAMADOL", "WARFARIN", "CELECOXIB", "CLOPIDOGREL",
-      "OMEPRAZOLE", "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL", "CAPECITABINE",
+  it("handles 6 core drugs requested simultaneously", () => {
+    const coreDrugs: SupportedDrug[] = [
+      "CODEINE", "WARFARIN", "CLOPIDOGREL",
+      "SIMVASTATIN", "AZATHIOPRINE", "FLUOROURACIL",
     ];
-    const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, allDrugs);
-    expect(results).toHaveLength(10);
+    const { results } = simulateAnalyzePipeline(MULTI_RISK_VCF, coreDrugs);
+    expect(results).toHaveLength(6);
     // Each drug should have a valid risk_label
     const validLabels = ["Safe", "Adjust Dosage", "Toxic", "Ineffective", "Unknown"];
     for (const r of results) {

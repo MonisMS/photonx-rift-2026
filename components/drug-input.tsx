@@ -178,17 +178,27 @@ export function DrugInput({ selected, onChange, enableDynamicLoading = true }: D
     );
   }, [selected, onChange]);
 
-  // ── Comma-separated batch add ──
-  function handleCommaBatch() {
-    if (!query.includes(",")) return false;
-    const names = query.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  // ── Batch add (comma/space separated OR single drug) ──
+  function handleTextEntry(): boolean {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return false;
+    
+    // Split by comma or space, filter empty
+    const names = trimmed.split(/[,\s]+/).filter(Boolean);
+    
     const resolved = names.map((n) => {
       // Check alias first
       const aliased = DRUG_ALIASES[n];
-      if (aliased) return aliased;
-      // Check if it matches a drug name directly
-      const drug = allDrugs.find(d => d.name === n);
-      return drug?.name;
+      if (aliased) {
+        const drug = allDrugs.find(d => d.name.toLowerCase() === aliased);
+        return drug?.name;
+      }
+      // Exact match (case-insensitive)
+      const exact = allDrugs.find(d => d.name.toLowerCase() === n);
+      if (exact) return exact.name;
+      // Partial match (starts with, case-insensitive)
+      const partial = allDrugs.find(d => d.name.toLowerCase().startsWith(n));
+      return partial?.name;
     }).filter((d): d is string => !!d);
     
     if (resolved.length > 0) {
@@ -211,7 +221,9 @@ export function DrugInput({ selected, onChange, enableDynamicLoading = true }: D
       setFocusIdx((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (handleCommaBatch()) return;
+      // Always try text entry first (handles single drug, comma, or space separated)
+      if (handleTextEntry()) return;
+      // Fallback: use keyboard focus or single-match
       if (focusIdx >= 0 && focusIdx < filtered.length) {
         toggle(filtered[focusIdx].name);
       } else if (filtered.length === 1) {
@@ -263,7 +275,7 @@ export function DrugInput({ selected, onChange, enableDynamicLoading = true }: D
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
-            placeholder={isLoading ? "Loading drugs..." : "Search drugs... (e.g. codeine, warfarin, CYP2D6)"}
+            placeholder={isLoading ? "Loading drugs..." : "codeine, warfarin, simvastatin... then Enter"}
             disabled={isLoading}
             className={cn(
               "flex h-10 w-full rounded-lg border border-border bg-card pl-9 pr-10 py-2 text-sm",
@@ -288,7 +300,7 @@ export function DrugInput({ selected, onChange, enableDynamicLoading = true }: D
           )}
         </div>
         <p className="mt-1 text-[13px] text-muted-foreground">
-          Type to filter · comma-separated for batch add · or browse the list below
+          Type drug names and press Enter · separate multiple with commas or spaces
         </p>
 
         {/* ── Dropdown ── */}

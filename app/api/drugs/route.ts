@@ -1,9 +1,12 @@
 /**
  * CPIC Drug Catalog API
  * 
- * GET /api/drugs → Returns all CPIC drugs with PGx guidelines
+ * GET /api/drugs → Returns CPIC drugs for our 6 supported genes only
  * 
- * Response includes 160+ drugs with:
+ * IMPORTANT: Only returns drugs that map to our declared gene panel:
+ * CYP2D6, CYP2C19, CYP2C9, SLCO1B1, TPMT, DPYD
+ * 
+ * Response includes:
  * - drugId: CPIC/RxNorm identifier
  * - name: lowercase drug name
  * - displayName: Title case for UI
@@ -13,10 +16,13 @@
  */
 
 import { NextResponse } from "next/server";
-import { fetchAllDrugs, checkAPIHealth, type CPICDrugEntry } from "@/lib/cpic-api";
+import { fetchAllDrugs, type CPICDrugEntry } from "@/lib/cpic-api";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 3600; // Cache for 1 hour at edge
+
+// The 6 genes declared in problem statement - ONLY show drugs for these
+const SUPPORTED_GENES = new Set(["CYP2D6", "CYP2C19", "CYP2C9", "SLCO1B1", "TPMT", "DPYD"]);
 
 // Hardcoded fallback if API is down
 const FALLBACK_DRUGS: CPICDrugEntry[] = [
@@ -37,9 +43,9 @@ export async function GET() {
   
   try {
     // Try to fetch from CPIC API
-    const drugs = await fetchAllDrugs();
+    const allDrugs = await fetchAllDrugs();
     
-    if (drugs.length === 0) {
+    if (allDrugs.length === 0) {
       // API failed, use fallback
       return NextResponse.json({
         drugs: FALLBACK_DRUGS,
@@ -49,10 +55,14 @@ export async function GET() {
       });
     }
     
+    // CRITICAL: Filter to only include drugs for our 6 supported genes
+    const filteredDrugs = allDrugs.filter(drug => SUPPORTED_GENES.has(drug.gene));
+    
     return NextResponse.json({
-      drugs,
+      drugs: filteredDrugs,
       source: "api",
-      count: drugs.length,
+      count: filteredDrugs.length,
+      totalInAPI: allDrugs.length,
       latency: Date.now() - startTime,
     });
   } catch (error) {
